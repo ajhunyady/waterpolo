@@ -1,110 +1,134 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
+  import { page } from '$app/state'; // Svelte 5+ location for page store
   import { gameStore } from '$lib/stores/gameStore';
-  import { get } from 'svelte/store';
-  import { totalsByPlayer, score } from '$lib/stats';
-  import type { ID } from '$lib/types';
+  import type { ID, StatType, GameData } from '$lib/types';
 
-  let period = 1; // manual period tracker (future: clock)
-  let gameId: ID;
+  // Grab the *actual* Svelte stores from the API object
+  const currentGame = gameStore.currentGame; // Writable<GameData|null>
 
-  $: gameId = $page.params.id;
+  // Current period (UI control)
+  let period = 1;
 
-  let loading = true;
-  let game = $gameStore.currentGame; // local alias
+  // Load the game when the route param changes (browser only)
+  $: gameId = $page.params.id as ID;
 
-  const { currentGame } = gameStore;
-
-  onMount(async () => {
-    // load from store if not already loaded or if different gameId
-    const cur = get(currentGame);
-    if (!cur || cur.meta.id !== gameId) {
-      await gameStore.loadGame(gameId);
-    }
-    loading = false;
+  onMount(() => {
+    if (gameId) gameStore.loadGame(gameId);
   });
 
-  $: game = $currentGame;
-  $: teamScore = game ? score(game) : {home:0,opponent:0};
-  $: playerTotals = game ? totalsByPlayer(game) : {};
+  // Derived reactive data
+  $: game = $currentGame as GameData | null;
+  $: playerTotals = game ? computePlayerTotals(game) : {};
+  $: teamScore = game ? computeTeamScore(game) : { home: 0, opponent: 0 };
 
-  function logStat(playerId: ID | undefined, type: 'GOAL'|'SHOT'|'ASSIST'|'BLOCK') {
+  function logStat(playerId: ID | undefined, type: StatType) {
     if (!game) return;
     const teamId = playerId ? game.home.id : game.opponent.id;
-    gameStore.addEvent({ gameId: game.meta.id, teamId, playerId, type, period });
+    gameStore.addEvent({
+      gameId: game.meta.id,
+      teamId,
+      playerId,
+      type,
+      period
+    });
   }
 
-  function logOpponent(type: 'GOAL'|'SHOT'|'ASSIST'|'BLOCK') {
+  function nextPeriod() {
     if (!game) return;
-    gameStore.addEvent({ gameId: game.meta.id, teamId: game.opponent.id, type, period });
+    if (period < game.meta.periods) period += 1;
+  }
+  function prevPeriod() {
+    if (period > 1) period -= 1;
   }
 
   function undo() {
     gameStore.undoLast();
   }
 
-  function toExport() {
-    goto(`/game/${gameId}/export`);
+  // --- derived helpers ---
+  function computePlayerTotals(g: GameData) {
+    const totals: Record<ID, { goals: number; shots: number; assists: number; blocks: number }> = {};
+    for (const p of g.home.players) {
+      totals[p.id] = { goals: 0, shots: 0, assists: 0, blocks: 0 };
+    }
+    for (const e of g.events) {
+      if (!e.playerId) continue; // opponent team aggregate only
+      const t = totals[e.playerId];
+      if (!t) continue;
+      switch (e.type) {
+        case 'GOAL': t.goals++; break;
+        case 'SHOT': t.shots++; break;
+        case 'ASSIST': t.assists++; break;
+        case 'BLOCK': t.blocks++; break;
+      }
+    }
+    return totals;
+  }
+
+  function computeTeamScore(g: GameData) {
+    let home = 0;
+    let opponent = 0;
+    for (const e of g.events) {
+      if (e.type !== 'GOAL') continue;
+      if (e.teamId === g.home.id) home++;
+      else opponent++;
+    }
+    return { home, opponent };
   }
 </script>
 
-{#if loading}
-  <p>Loading...</p>
-{:else if !game}
-  <p>Game not found.</p>
+{#if !game}
+  <p class="p-4 text-center text-lg text-slate-500">Loading...</p>
 {:else}
-  <div class="flex flex-col gap-4">
+  <div class="space-y-6 max-w-4xl mx-auto">
     <!-- Scoreboard -->
-    <div class="grid grid-cols-3 items-center text-center bg-white rounded-lg shadow p-2 text-xl font-bold">
-      <div>{game.home.name}</div>
-      <div class="text-3xl">{teamScore.home} : {teamScore.opponent}</div>
-      <div> {game.opponent.name} </div>
+    <div class="grid grid-cols-3 items-center gap-2 text-center">
+      <div class="truncate text-xl font-semibold">{game.home.name}</div>
+      <div class="text-3xl font-bold">{teamScore.home} : {teamScore.opponent}</div>
+      <div class="truncate text-xl font-semibold">{game.opponent.name}</div>
     </div>
 
-    <!-- Period Selector -->
-    <div class="flex items-center justify-center gap-2 text-lg">
-      <span>Period:</span>
-      {#each Array(game.meta.periods) as _,i}
-        <button class="px-3 py-1 rounded border text-lg {period===i+1?'bg-blue-600 text-white':''}" on:click={() => period=i+1}>{i+1}</button>
-      {/each}
+    <!-- Period Controls -->
+    <div class="flex items-center justify-center gap-4">
+      <button type="button" on:click={prevPeriod} class="px-3 py-1 rounded bg-slate-300 text-slate-800 disabled:opacity-40" disabled={period === 1}>-</button>
+      <div class="text-lg font-medium">Period {period} / {game.meta.periods}</div>
+      <button type="button" on:click={nextPeriod} class="px-3 py-1 rounded bg-slate-300 text-slate-800 disabled:opacity-40" disabled={period >= game.meta.periods}>+</button>
     </div>
 
     <!-- Player Grid -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
       {#each game.home.players as p}
-        <div class="player-tile" on:click={() => logStat(p.id,'GOAL')}>
-          <div class="text-2xl font-bold">{p.number}</div>
-          <div class="truncate">{p.name}</div>
-          <div class="text-sm opacity-70">
-            G:{playerTotals[p.id]?.goals ?? 0} S:{playerTotals[p.id]?.shots ?? 0} A:{playerTotals[p.id]?.assists ?? 0} B:{playerTotals[p.id]?.blocks ?? 0}
+        <button
+          type="button"
+          class="p-3 rounded-lg bg-white border shadow flex flex-col gap-1 items-center text-center active:scale-95 transition-transform"
+          on:click={() => logStat(p.id, 'GOAL')}
+          on:contextmenu|preventDefault={() => logStat(p.id, 'SHOT')}
+        >
+          <div class="text-2xl font-bold leading-none">{p.number}</div>
+          <div class="text-sm truncate w-full">{p.name}</div>
+          <div class="text-xs text-slate-500 w-full">
+            G:{playerTotals[p.id]?.goals ?? 0}
+            &nbsp;S:{playerTotals[p.id]?.shots ?? 0}
+            &nbsp;A:{playerTotals[p.id]?.assists ?? 0}
+            &nbsp;B:{playerTotals[p.id]?.blocks ?? 0}
           </div>
-        </div>
+        </button>
       {/each}
     </div>
 
-    <!-- Stat Buttons Row -->
-    <div class="grid grid-cols-4 gap-2 mt-4">
-      <button class="stat-btn goal" on:click={() => logStat(undefined,'GOAL')}>Opp Goal</button>
-      <button class="stat-btn shot" on:click={() => logStat(undefined,'SHOT')}>Opp Shot</button>
-      <button class="stat-btn assist" on:click={() => logStat(undefined,'ASSIST')}>Opp Ast</button>
-      <button class="stat-btn block" on:click={() => logStat(undefined,'BLOCK')}>Opp Block</button>
+    <!-- Opponent aggregate stat buttons -->
+    <div class="grid grid-cols-4 gap-2">
+      <button type="button" class="py-3 rounded bg-slate-800 text-white font-bold" on:click={() => logStat(undefined,'GOAL')}>Opp Goal</button>
+      <button type="button" class="py-3 rounded bg-slate-800 text-white font-bold" on:click={() => logStat(undefined,'SHOT')}>Opp Shot</button>
+      <button type="button" class="py-3 rounded bg-slate-800 text-white font-bold" on:click={() => logStat(undefined,'ASSIST')}>Opp Ast</button>
+      <button type="button" class="py-3 rounded bg-slate-800 text-white font-bold" on:click={() => logStat(undefined,'BLOCK')}>Opp Block</button>
     </div>
 
-    <!-- Action Buttons -->
-    <div class="flex gap-2 mt-6">
-      <button class="flex-1 py-3 rounded bg-yellow-500 text-white text-xl font-bold" on:click={undo}>Undo</button>
-      <button class="flex-1 py-3 rounded bg-slate-700 text-white text-xl font-bold" on:click={toExport}>Export</button>
+    <!-- Controls -->
+    <div class="flex gap-4 justify-center pt-4">
+      <button type="button" class="px-4 py-2 rounded bg-amber-500 text-white font-semibold" on:click={undo}>Undo</button>
+      <a href="/export/{game.meta.id}" class="px-4 py-2 rounded bg-blue-600 text-white font-semibold text-center">Export</a>
     </div>
   </div>
 {/if}
-
-<style>
-  .player-tile {@apply select-none bg-white rounded-lg shadow p-3 text-center active:scale-[0.97] transition-transform;} /* default action logs GOAL */
-  .stat-btn {@apply py-4 rounded-lg text-white text-xl font-bold active:scale-[0.97] transition-transform;}
-  .goal {@apply bg-green-600;}
-  .shot {@apply bg-blue-600;}
-  .assist {@apply bg-purple-600;}
-  .block {@apply bg-orange-600;}
-</style>

@@ -5,22 +5,33 @@
   import type { Player } from '$lib/types';
 
   let opponentName = '';
-  let date = new Date().toISOString().slice(0,10);
+  let date = new Date().toISOString().slice(0, 10);
   let homeTeamName = 'Our Team';
   let periods = 4;
   let autoShotOnGoal = true;
 
   // start w/ 13 empty roster slots
-  let players: Player[] = Array.from({length:13}).map((_,i)=>({id:uuid(),number:i+1,name:""}));
+  let players: Player[] = Array.from({ length: 13 }).map((_, i) => ({
+    id: uuid(),
+    number: i + 1,
+    name: ''
+  }));
 
   async function create() {
-    const activePlayers = players.filter((p)=>p.name.trim() !== '');
-    const id = await gameStore.createGame({homeTeamName,players:activePlayers,opponentName,date,periods,autoShotOnGoal});
+    const activePlayers = players.filter((p) => p.name.trim() !== '');
+    const id = await gameStore.createGame({
+      homeTeamName,
+      players: activePlayers,
+      opponentName,
+      date,
+      periods,
+      autoShotOnGoal
+    });
     goto(`/game/${id}`);
   }
 </script>
 
-<div class="space-y-6">
+<div class="space-y-6 max-w-2xl mx-auto">
   <h1 class="text-2xl font-bold">New Game</h1>
 
   <div class="grid gap-4">
@@ -57,9 +68,11 @@
     </div>
   </div>
 
-  <button on:click={create} class="w-full py-4 rounded-lg bg-green-600 text-white text-xl font-bold">Create Game</button>
+  <button
+    type="button"
+    on:click={create}
+    class="w-full py-4 rounded-lg bg-green-600 text-white text-xl font-bold"
+  >
+    Create Game
+  </button>
 </div>
-
-<style>
-  .input {@apply px-3 py-2 rounded border border-slate-300 bg-white text-lg;} /* Tailwind @apply */
-</style>
