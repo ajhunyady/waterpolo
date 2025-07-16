@@ -1,0 +1,11 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+@layer components {
+  .input {@apply px-3 py-2 rounded border border-slate-300 bg-white text-lg w-full;}
+}
+
+html, body {
+  touch-action: manipulation; /* reduce 300ms delays */
+  -webkit-tap-highlight-color: transparent;
+}
