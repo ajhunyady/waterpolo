@@ -51,7 +51,7 @@
   const activePlayers = $derived.by<Player[]>(() => (game ? game.home.players.filter((p) => p.active === true) : []));
   const benchPlayers = $derived.by<Player[]>(() => (game ? game.home.players.filter((p) => p.active !== true) : []));
 
-  /* newest period first; then latest clock in that period */
+  /* newest period first; then latest clock */
   const sortedEvents = $derived.by<StatEvent[]>(() => {
     if (!game) return [];
     return [...game.events].sort((a, b) => {
@@ -102,16 +102,15 @@
   function logPeriodStart(newPeriod: number) {
     if (!game) return;
     const prevPeriod = period;
-    // Add the period start event explicitly at clock 0
+    // add explicit 00:00 event
     gameStore.addEvent({
       gameId: game.meta.id,
-      teamId: game.home.id, // arbitrary; attribute to home
+      teamId: game.home.id,
       type: 'PERIOD_START',
       period: newPeriod,
       clock: 0
     });
-    // capture the eventId just added (last event in updated game)
-    // We rely on synchronous store update; after addEvent, `game` is updated.
+    // capture id of last event (assumes synchronous store update)
     const ev = game?.events[game.events.length - 1];
     const evId = ev?.id as ID | undefined;
     actionStack = [...actionStack, { kind: 'period', prev: prevPeriod, next: newPeriod, eventId: evId }];
@@ -168,7 +167,7 @@
     }
   }
   function prevPeriod() {
-    if (period > 1) period -= 1; // no logged event when going backward
+    if (period > 1) period -= 1;
   }
 
   function stop<E extends Event>(e: E) {
@@ -253,7 +252,7 @@
         case 'TURNOVER': t.turnovers++; break;
         case 'EXCLUSION': t.exclusions++; break;
         case 'DRAWN_EXCLUSION': t.drawnExclusions++; break;
-        // ignore SUB_/PERIOD_ types for totals
+        // ignore SUB_/PERIOD_ for stats
       }
     }
     return totals;

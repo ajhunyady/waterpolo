@@ -35,10 +35,9 @@ export type StatType =
   | 'DRAWN_EXCLUSION'
   | 'TURNOVER'
   | 'EXCLUSION'
-  | 'SUB_IN'
-  | 'SUB_OUT'
-  | 'PERIOD_START';
-
+  | 'SUB_IN'          // player entered game (bench -> active)
+  | 'SUB_OUT'         // player exited game (active -> bench)
+  | 'PERIOD_START';   // new period began (clock reset)
 
 export const POSITIVE_STATS: readonly StatType[] = [
   'GOAL',
@@ -72,8 +71,8 @@ export interface StatEvent {
   linkedId?: ID;
 
   /**
-   * Seconds elapsed from the start of the game when this event occurred.
-   * 0 = game start. May be absent on legacy records; clients should backfill.
+   * Seconds elapsed *within the period* when this event occurred.
+   * 0 = start of the period. May be absent on legacy records; clients should backfill.
    */
   clock?: number;
 }
@@ -131,7 +130,7 @@ export interface AddEventArgs {
   type: StatType;
   period: number;
   ts?: number;
-  /** Optional explicit clock; normally store auto-assigns next second. */
+  /** Optional explicit clock; normally store auto-assigns next second within the period. */
   clock?: number;
 }
 
@@ -152,6 +151,6 @@ export interface GameStoreApi {
   removeEvent: (id: ID) => void;
   undoLast: () => void;
 
-  /** Update the clock (seconds) on an existing event & persist. */
+  /** Update the clock (seconds within period) on an existing event & persist. */
   updateEventClock: (gameId: ID, eventId: ID, clock: number) => void;
 }

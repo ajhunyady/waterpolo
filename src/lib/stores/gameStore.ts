@@ -93,11 +93,13 @@ function normalizeCreateArgs({
   };
 }
 
+/**
+ * Sequential clock backfill for legacy games that lack `clock`.
+ * We reset a separate counter for each *period* so historical data displays correctly.
+ */
 function backfillClocks(g: GameData): GameData {
-  // If every event already has a numeric clock, nothing to do.
   if (g.events.every((e) => typeof e.clock === 'number')) return g;
-  // Assign sequential seconds *within each period* based on encounter order.
-  const counters = new Map<number, number>(); // period -> next sec
+  const counters = new Map<number, number>(); // per-period counters
   const events = g.events.map((e) => {
     if (typeof e.clock === 'number') return e;
     const cur = counters.get(e.period) ?? 0;
@@ -107,10 +109,11 @@ function backfillClocks(g: GameData): GameData {
   return { ...g, events };
 }
 
-/** Compute the next clock second *within a specific period*.
-* If `explicit` supplied use it; otherwise find max clock among events
-* that share the given period. First event in a period => 0.
-*/
+/**
+ * Compute the next clock second *within the specified period*.
+ * If `explicit` is provided, use it; otherwise find the max clock among events in that period.
+ * First event in a new period => 0.
+ */
 function nextClock(g: GameData, period: number, explicit?: number): number {
   if (typeof explicit === 'number' && explicit >= 0) return explicit;
   let max = -1;
@@ -121,9 +124,10 @@ function nextClock(g: GameData, period: number, explicit?: number): number {
   return max + 1;
 }
 
-/** Sort helper — ensure events are in ascending clock order. */
+/** Sort helper — ensure events are in ascending (period, clock) order. */
 function sortEventsByClock(events: StatEvent[]): StatEvent[] {
   return [...events].sort((a, b) => {
+    if (a.period !== b.period) return a.period - b.period;
     const ca = typeof a.clock === 'number' ? a.clock : Number.MAX_SAFE_INTEGER;
     const cb = typeof b.clock === 'number' ? b.clock : Number.MAX_SAFE_INTEGER;
     if (ca !== cb) return ca - cb;
@@ -175,7 +179,6 @@ async function createGame(init: CreateGameArgs): Promise<ID> {
   const home: Team = {
     id: uuid(),
     name: homeTeamName,
-    // ensure each player has an id (in case caller omitted)
     players: players.map((p) => ({ ...p, id: p.id ?? uuid() }))
   };
 
@@ -190,7 +193,6 @@ async function createGame(init: CreateGameArgs): Promise<ID> {
 
   saveGameData(game);
 
-  // update index
   const entry: GamesIndexEntry = {
     id,
     opponentName,
@@ -214,7 +216,6 @@ async function loadGame(id: ID): Promise<GameData | null> {
     currentGame.set(null);
     return null;
   }
-  // migrate clocks if needed
   const migrated = backfillClocks(raw);
   if (migrated !== raw) {
     saveGameData(migrated);
@@ -282,7 +283,7 @@ function addEvent(args: AddEventArgs): void {
     const shot: StatEvent = {
       id: shotId,
       ts,          // same timestamp
-      clock,       // same game second as goal
+      clock,       // same period second as goal
       gameId: g.meta.id,
       teamId: args.teamId,
       playerId: args.playerId,
@@ -290,12 +291,10 @@ function addEvent(args: AddEventArgs): void {
       period: args.period,
       linkedId: id
     };
-    // link both ways
     ev.linkedId = shotId;
     g.events.push(shot);
   }
 
-  // record for store-level undo (events only)
   undoStack.push(ev.id);
 
   saveGame(g); // persists + updates currentGame
@@ -308,12 +307,10 @@ function removeEvent(id: ID): void {
   if (idx === -1) return;
   const ev = g.events[idx];
 
-  // remove linked if present
   if (ev.linkedId) {
     const idx2 = g.events.findIndex((e) => e.id === ev.linkedId);
     if (idx2 !== -1) g.events.splice(idx2, 1);
   } else {
-    // check reverse linkage
     const linked = g.events.findIndex((e) => e.linkedId === ev.id);
     if (linked !== -1) g.events.splice(linked, 1);
   }
@@ -330,7 +327,7 @@ function undoLast(): void {
   removeEvent(last.id);
 }
 
-/** Update an event's clock & persist (keeps order sorted by clock). */
+/** Update an event's clock & persist (keeps order sorted by period+clock). */
 function updateEventClock(gameId: ID, eventId: ID, clock: number): void {
   const g = get(currentGame);
   if (!g || g.meta.id !== gameId) return;
