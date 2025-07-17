@@ -2,40 +2,63 @@
   import { gameStore } from '$lib/stores/gameStore';
   import { goto } from '$app/navigation';
   import { loadJSON } from '$lib/persist';
-  import type { GamesIndexEntry, GameData, ID, StatEvent } from '$lib/types';
+  import type {
+    GamesIndexEntry,
+    GameData,
+    ID,
+    StatEvent
+  } from '$lib/types';
 
-  /* Subscribe to the actual Svelte store exported by gameStore. */
+  /* Subscribe to the index of saved games (lightweight metadata). */
   const gamesStore = gameStore.games;
   let games: GamesIndexEntry[] = $state([]);
 
-  /* Score cache keyed by game id */
-  interface Score { home: number; opponent: number; }
-  let scores: Record<ID, Score> = $state({} as Record<ID, Score>);
+  /* Cached per-game details we derive on demand (score + home team name). */
+  interface Score {
+    home: number;
+    opponent: number;
+  }
+  interface HomeInfo {
+    name: string;
+    score: Score;
+  }
+  let details: Record<ID, HomeInfo> = $state({} as Record<ID, HomeInfo>);
 
-  /* Whenever games list changes, refresh scores from storage (browser only). */
-  $effect(() => {
-    // don't run in SSR (localStorage undefined)
-    if (typeof window === 'undefined') return;
-    const next: Record<ID, Score> = {};
-    for (const g of games) {
-      const data = loadGameData(g.id);
-      next[g.id] = data ? computeScore(data) : { home: 0, opponent: 0 };
-    }
-    scores = next;
-  });
-
+  /* Subscribe to the games index. */
   $effect(() => {
     const unsub = gamesStore.subscribe((v) => (games = v));
     return unsub;
+  });
+
+  /* Whenever games index changes (or on first mount in browser), refresh details. */
+  $effect(() => {
+    if (typeof window === 'undefined') return; // SSR guard
+    const next: Record<ID, HomeInfo> = {};
+    for (const g of games) {
+      const data = loadGameData(g.id);
+      if (data) {
+        next[g.id] = {
+          name: data.home.name || 'Our Team',
+          score: computeScore(data)
+        };
+      } else {
+        // fallback if game record missing
+        next[g.id] = {
+          name: 'Our Team',
+          score: { home: 0, opponent: 0 }
+        };
+      }
+    }
+    details = next;
   });
 
   function newGame() {
     goto('/game/new');
   }
 
-  /** load full GameData for a given id without mutating currentGame */
+  /** Load full GameData for given id without mutating global currentGame. */
   function loadGameData(id: ID): GameData | null {
-    // gameStore's internal storage key is `game_${id}`. (See gameStore.ts.) :contentReference[oaicite:3]{index=3}
+    // gameStore persists games under game_${id}; persist.ts adds prefix internally.
     return loadJSON<GameData | null>(`game_${id}`, null);
   }
 
@@ -50,13 +73,20 @@
     }
     return { home, opponent };
   }
+
+  /** Style helper: pick badge color based on win/loss/tie. */
+  function scoreClass(s: Score): string {
+    if (s.home > s.opponent) return 'bg-green-600 text-white';
+    if (s.home < s.opponent) return 'bg-red-600 text-white';
+    return 'bg-slate-400 text-white';
+  }
 </script>
 
 <div class="max-w-xl mx-auto space-y-6">
   <div class="flex justify-end">
     <button
       type="button"
-      class="px-4 py-2 rounded bg-green-600 text-white font-semibold"
+      class="px-4 py-2 rounded bg-green-600 text-white font-semibold shadow hover:bg-green-700 active:scale-95 transition"
       onclick={newGame}
     >
       + New Game
@@ -66,26 +96,37 @@
   {#if games.length === 0}
     <p class="p-4 text-center text-slate-500">No games yet.</p>
   {:else}
-    <ul class="space-y-2">
+    <ul class="space-y-3">
       {#each games as g}
-        <li>
-          <a
-            href={`/game/${g.id}`}
-            class="block p-4 rounded border bg-white shadow hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-          >
-            <div class="text-xl font-bold leading-none">
-              {#if scores[g.id]}
-                {scores[g.id].home} : {scores[g.id].opponent}
+        {#key g.id}
+          <li>
+            <a
+              href={`/game/${g.id}`}
+              class="block p-4 rounded-xl border bg-white shadow hover:shadow-md hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 transition"
+            >
+              {#if details[g.id]}
+                <div
+                  class={`inline-block px-3 py-1 mb-2 rounded-full text-sm font-bold ${scoreClass(details[g.id].score)}`}
+                >
+                  {details[g.id].score.home} : {details[g.id].score.opponent}
+                </div>
               {:else}
-                0 : 0
+                <div
+                  class="inline-block px-3 py-1 mb-2 rounded-full text-sm font-bold bg-slate-300 text-slate-800"
+                >
+                  0 : 0
+                </div>
               {/if}
-            </div>
-            <div class="text-lg font-semibold">
-              vs {g.opponentName ?? 'Opponent'}
-            </div>
-            <div class="text-sm text-slate-500">{g.date}</div>
-          </a>
-        </li>
+
+              <div class="text-lg font-semibold leading-tight">
+                {details[g.id]?.name ?? 'Our Team'}
+                <span class="mx-1 text-slate-400">vs</span>
+                {g.opponentName ?? 'Opponent'}
+              </div>
+              <div class="text-sm text-slate-500 mt-1">{g.date}</div>
+            </a>
+          </li>
+        {/key}
       {/each}
     </ul>
   {/if}
