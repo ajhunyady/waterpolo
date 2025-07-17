@@ -24,7 +24,7 @@
     if (gameId) gameStore.loadGame(gameId);
   });
 
-  /* derived values recompute when `game` changes */
+  /* ----- totals & scoreboard ----- */
   type Totals = {
     goals: number;
     shots: number;
@@ -38,26 +38,26 @@
   type PlayerTotalsMap = Record<ID, Totals>;
   type Score = { home: number; opponent: number };
 
-  const playerTotals: PlayerTotalsMap = $derived(
-    game ? computePlayerTotals(game) : ({} as PlayerTotalsMap)
-  );
+  const playerTotals = $derived.by<PlayerTotalsMap>(() => {
+    return game ? computePlayerTotals(game) : ({} as PlayerTotalsMap);
+  });
 
-  const teamScore: Score = $derived(
-    game ? computeTeamScore(game) : { home: 0, opponent: 0 }
-  );
+  const teamScore = $derived.by<Score>(() => {
+    return game ? computeTeamScore(game) : { home: 0, opponent: 0 };
+  });
 
-  /* Active vs Bench derived lists (undefined => active by default) */
-  const activePlayers = $derived<Player[]>(() =>
-    game
-      ? game.home.players.filter((p) => p.active !== false) // true or undefined -> active
-      : []
-  );
-  const benchPlayers = $derived<Player[]>(() =>
-    game
-      ? game.home.players.filter((p) => p.active === false)
-      : []
-  );
+  /* ----- active vs bench lists ----- */
+  const activePlayers = $derived.by<Player[]>(() => {
+  if (!game) return [];
+    return game.home.players.filter((p) => p.active !== false);
+  });
 
+  const benchPlayers = $derived.by<Player[]>(() => {
+  if (!game) return [];
+    return game.home.players.filter((p) => p.active === false);
+  });
+
+  /* ----- store interaction helpers ----- */
   function logStat(playerId: ID | undefined, type: StatType) {
     if (!game) return;
     const teamId = playerId ? game.home.id : game.opponent.id;
@@ -84,14 +84,28 @@
   /** Toggle player.active and persist game. */
   function setPlayerActive(id: ID, isActive: boolean) {
     if (!game) return;
-    const g = structuredClone(game) as GameData;
+    const g: GameData = structuredClone(game);
     const player = g.home.players.find((p) => p.id === id);
     if (!player) return;
     player.active = isActive;
     gameStore.saveGame(g); // triggers store update
   }
 
-  // --- helpers ---
+  /* stop bubbling from mini-buttons so tile click doesn't also log a Goal */
+  function stop<E extends Event>(e: E) {
+    e.stopPropagation();
+  }
+
+  /** Click behavior: if bench -> activate; if active -> log GOAL. */
+  function tileClick(p: Player) {
+    if (p.active === false) {
+      setPlayerActive(p.id, true);
+    } else {
+      logStat(p.id, 'GOAL');
+    }
+  }
+
+  /* ----- computation helpers ----- */
   function emptyTotals(): Totals {
     return {
       goals: 0,
@@ -107,9 +121,7 @@
 
   function computePlayerTotals(g: GameData): PlayerTotalsMap {
     const totals: PlayerTotalsMap = {} as PlayerTotalsMap;
-    for (const p of g.home.players) {
-      totals[p.id] = emptyTotals();
-    }
+    for (const p of g.home.players) totals[p.id] = emptyTotals();
     for (const e of g.events) {
       if (!e.playerId) continue;
       const t = totals[e.playerId];
@@ -136,20 +148,6 @@
       if (e.teamId === g.home.id) home++; else opponent++;
     }
     return { home, opponent };
-  }
-
-  /* stop bubbling from mini-buttons so tile click doesn't also log a Goal */
-  function stop<E extends Event>(e: E) {
-    e.stopPropagation();
-  }
-
-  /** If player is bench, clicking tile activates them; otherwise logs GOAL. */
-  function tileClick(p: Player) {
-    if (p.active === false) {
-      setPlayerActive(p.id, true);
-    } else {
-      logStat(p.id, 'GOAL');
-    }
   }
 </script>
 
@@ -187,8 +185,70 @@
       <div class="space-y-2">
         <h2 class="text-lg font-semibold px-1">Active ({activePlayers.length})</h2>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {#each activePlayers as p}
-            <PlayerTile {p} isActive={true} />
+          {#each activePlayers as p (p.id)}
+            <div
+              role="button"
+              tabindex="0"
+              class="relative p-3 rounded-lg bg-white border shadow flex flex-col gap-1 items-center text-center active:scale-95 transition-transform select-none"
+              onclick={() => tileClick(p)}
+              onkeydown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  tileClick(p);
+                }
+              }}
+            >
+              <!-- status badge -->
+              <span class="absolute top-1 right-1 text-[10px] px-1.5 py-0.5 rounded-full bg-green-600 text-white font-bold">IN</span>
+              <!-- quick bench toggle -->
+              <button
+                type="button"
+                title="Move to bench"
+                class="absolute top-1 left-1 text-xs px-1 py-0.5 rounded bg-slate-200 text-slate-700 hover:bg-slate-300"
+                onclick={(e) => { stop(e); setPlayerActive(p.id, false); }}
+              >↕</button>
+
+              <div class="text-2xl font-bold leading-none">{p.number}</div>
+              <div class="text-sm truncate w-full">{p.name}</div>
+
+              <!-- totals row 1 -->
+              <div class="text-xs text-slate-500 w-full">
+                G:{playerTotals[p.id]?.goals ?? 0}
+                &nbsp;S:{playerTotals[p.id]?.shots ?? 0}
+                &nbsp;A:{playerTotals[p.id]?.assists ?? 0}
+              </div>
+              <!-- totals row 2 -->
+              <div class="text-xs text-slate-500 w-full">
+                B:{playerTotals[p.id]?.blocks ?? 0}
+                &nbsp;St:{playerTotals[p.id]?.steals ?? 0}
+                &nbsp;DEx:{playerTotals[p.id]?.drawnExclusions ?? 0}
+              </div>
+              <!-- totals row 3 (negative) -->
+              <div class="text-xs text-red-600 w-full">
+                TO:{playerTotals[p.id]?.turnovers ?? 0}
+                &nbsp;Ex:{playerTotals[p.id]?.exclusions ?? 0}
+              </div>
+
+              <!-- mini stat pad row 1 -->
+              <div class="mt-1 grid grid-cols-3 gap-1 w-full">
+                <button type="button" class="px-1 py-0.5 rounded bg-green-600 text-white text-xs font-bold" onclick={(e) => { stop(e); logStat(p.id, 'GOAL'); }}>G</button>
+                <button type="button" class="px-1 py-0.5 rounded bg-blue-600 text-white text-xs font-bold" onclick={(e) => { stop(e); logStat(p.id, 'SHOT'); }}>S</button>
+                <button type="button" class="px-1 py-0.5 rounded bg-amber-500 text-white text-xs font-bold" onclick={(e) => { stop(e); logStat(p.id, 'ASSIST'); }}>A</button>
+              </div>
+
+              <!-- mini stat pad row 2 -->
+              <div class="mt-1 grid grid-cols-3 gap-1 w-full">
+                <button type="button" class="px-1 py-0.5 rounded bg-purple-600 text-white text-xs font-bold" onclick={(e) => { stop(e); logStat(p.id, 'BLOCK'); }}>B</button>
+                <button type="button" class="px-1 py-0.5 rounded bg-teal-600 text-white text-xs font-bold" onclick={(e) => { stop(e); logStat(p.id, 'STEAL'); }}>St</button>
+                <button type="button" class="px-1 py-0.5 rounded bg-indigo-600 text-white text-xs font-bold" onclick={(e) => { stop(e); logStat(p.id, 'DRAWN_EXCLUSION'); }}>DEx</button>
+              </div>
+
+              <!-- mini stat pad row 3 (negative) -->
+              <div class="mt-1 grid grid-cols-2 gap-1 w-full">
+                <button type="button" class="px-1 py-0.5 rounded bg-red-600 text-white text-xs font-bold" onclick={(e) => { stop(e); logStat(p.id, 'TURNOVER'); }}>TO</button>
+                <button type="button" class="px-1 py-0.5 rounded bg-red-700 text-white text-xs font-bold" onclick={(e) => { stop(e); logStat(p.id, 'EXCLUSION'); }}>Ex</button>
+              </div>
+            </div>
           {/each}
         </div>
       </div>
@@ -199,57 +259,24 @@
 
         <!-- row 1 -->
         <div class="grid grid-cols-1 gap-2 w-full">
-          <button
-            type="button"
-            class="w-full py-2 rounded bg-slate-800 text-white font-bold"
-            onclick={() => logStat(undefined,'GOAL')}
-          >Opp Goal</button>
-          <button
-            type="button"
-            class="w-full py-2 rounded bg-slate-800 text-white font-bold"
-            onclick={() => logStat(undefined,'SHOT')}
-          >Opp Shot</button>
-          <button
-            type="button"
-            class="w-full py-2 rounded bg-slate-800 text-white font-bold"
-            onclick={() => logStat(undefined,'ASSIST')}
-          >Opp Ast</button>
+          <button type="button" class="w-full py-2 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'GOAL')}>Opp Goal</button>
+          <button type="button" class="w-full py-2 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'SHOT')}>Opp Shot</button>
+          <button type="button" class="w-full py-2 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'ASSIST')}>Opp Ast</button>
         </div>
 
         <!-- row 2 -->
         <div class="grid grid-cols-1 gap-2 w-full mt-2">
-          <button
-            type="button"
-            class="w-full py-2 rounded bg-slate-800 text-white font-bold"
-            onclick={() => logStat(undefined,'BLOCK')}
-          >Opp Blk</button>
-          <button
-            type="button"
-            class="w-full py-2 rounded bg-slate-800 text-white font-bold"
-            onclick={() => logStat(undefined,'STEAL')}
-          >Opp Stl</button>
-          <button
-            type="button"
-            class="w-full py-2 rounded bg-slate-800 text-white font-bold"
-            onclick={() => logStat(undefined,'DRAWN_EXCLUSION')}
-          >Opp DEx</button>
+          <button type="button" class="w-full py-2 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'BLOCK')}>Opp Blk</button>
+          <button type="button" class="w-full py-2 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'STEAL')}>Opp Stl</button>
+          <button type="button" class="w-full py-2 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'DRAWN_EXCLUSION')}>Opp DEx</button>
         </div>
 
-        <!-- divider -->
         <div class="w-full h-px bg-slate-300 my-1"></div>
 
         <!-- row 3 (negative) -->
         <div class="grid grid-cols-1 gap-2 w-full">
-          <button
-            type="button"
-            class="w-full py-2 rounded bg-red-600 text-white font-bold"
-            onclick={() => logStat(undefined,'TURNOVER')}
-          >Opp TO</button>
-          <button
-            type="button"
-            class="w-full py-2 rounded bg-red-700 text-white font-bold"
-            onclick={() => logStat(undefined,'EXCLUSION')}
-          >Opp Ex</button>
+          <button type="button" class="w-full py-2 rounded bg-red-600 text-white font-bold" onclick={() => logStat(undefined,'TURNOVER')}>Opp TO</button>
+          <button type="button" class="w-full py-2 rounded bg-red-700 text-white font-bold" onclick={() => logStat(undefined,'EXCLUSION')}>Opp Ex</button>
         </div>
       </div>
     </div>
@@ -261,8 +288,65 @@
         <p class="text-sm text-slate-500 px-1">No bench players.</p>
       {:else}
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {#each benchPlayers as p}
-            <PlayerTile {p} isActive={false} />
+          {#each benchPlayers as p (p.id)}
+            <div
+              role="button"
+              tabindex="0"
+              class="relative p-3 rounded-lg bg-slate-100 border shadow flex flex-col gap-1 items-center text-center opacity-60 hover:opacity-80 transition select-none cursor-pointer"
+              title="Tap to activate player"
+              onclick={() => tileClick(p)}
+              onkeydown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  tileClick(p);
+                }
+              }}
+            >
+              <!-- status badge -->
+              <span class="absolute top-1 right-1 text-[10px] px-1.5 py-0.5 rounded-full bg-slate-500 text-white font-bold">BENCH</span>
+              <!-- quick activate toggle -->
+              <button
+                type="button"
+                title="Move to active"
+                class="absolute top-1 left-1 text-xs px-1 py-0.5 rounded bg-slate-200 text-slate-700 hover:bg-slate-300"
+                onclick={(e) => { stop(e); setPlayerActive(p.id, true); }}
+              >↕</button>
+
+              <div class="text-2xl font-bold leading-none">{p.number}</div>
+              <div class="text-sm truncate w-full">{p.name}</div>
+
+              <!-- totals (read-only) -->
+              <div class="text-xs text-slate-500 w-full">
+                G:{playerTotals[p.id]?.goals ?? 0}
+                &nbsp;S:{playerTotals[p.id]?.shots ?? 0}
+                &nbsp;A:{playerTotals[p.id]?.assists ?? 0}
+              </div>
+              <div class="text-xs text-slate-500 w-full">
+                B:{playerTotals[p.id]?.blocks ?? 0}
+                &nbsp;St:{playerTotals[p.id]?.steals ?? 0}
+                &nbsp;DEx:{playerTotals[p.id]?.drawnExclusions ?? 0}
+              </div>
+              <div class="text-xs text-red-600 w-full">
+                TO:{playerTotals[p.id]?.turnovers ?? 0}
+                &nbsp;Ex:{playerTotals[p.id]?.exclusions ?? 0}
+              </div>
+
+              <!-- disabled stat pads -->
+              <div class="mt-1 grid grid-cols-3 gap-1 w-full pointer-events-none">
+                <div class="px-1 py-0.5 rounded bg-slate-300 text-white text-xs font-bold text-center">G</div>
+                <div class="px-1 py-0.5 rounded bg-slate-300 text-white text-xs font-bold text-center">S</div>
+                <div class="px-1 py-0.5 rounded bg-slate-300 text-white text-xs font-bold text-center">A</div>
+              </div>
+              <div class="mt-1 grid grid-cols-3 gap-1 w-full pointer-events-none">
+                <div class="px-1 py-0.5 rounded bg-slate-300 text-white text-xs font-bold text-center">B</div>
+                <div class="px-1 py-0.5 rounded bg-slate-300 text-white text-xs font-bold text-center">St</div>
+                <div class="px-1 py-0.5 rounded bg-slate-300 text-white text-xs font-bold text-center">DEx</div>
+              </div>
+              <div class="mt-1 grid grid-cols-2 gap-1 w-full pointer-events-none">
+                <div class="px-1 py-0.5 rounded bg-slate-300 text-white text-xs font-bold text-center">TO</div>
+                <div class="px-1 py-0.5 rounded bg-slate-300 text-white text-xs font-bold text-center">Ex</div>
+              </div>
+            </div>
           {/each}
         </div>
       {/if}
@@ -296,23 +380,3 @@
     </div>
   </div>
 {/if}
-
-<!-- Player Tile Inline Component -->
-<script module lang="ts">
-  import type { Player } from '$lib/types';
-
-  export let p: Player;
-  export let isActive: boolean;
-
-  /* these outer-scope funcs/vars are hoisted from the main script */
-  // logStat, stop, playerTotals, setPlayerActive, tileClick come from outer script
-</script>
-
-<!--
-  NOTE: Because Svelte single-file components don't have a dedicated child component
-  block (without creating a separate file), we emulate a "componentlet" using
-  {@html} would lose reactivity. Instead, we inline the markup in the #each loops above.
-  The <script module> block above is inert; kept only if you decide to factor out.
-
-  => The actual PlayerTile DOM is rendered inline in the #each loops; see markup there.
--->
