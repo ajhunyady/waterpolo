@@ -93,29 +93,29 @@ function normalizeCreateArgs({
   };
 }
 
-/** Sequential clock backfill for legacy games that lack `clock`. */
 function backfillClocks(g: GameData): GameData {
-  let needs = false;
-  for (const e of g.events) {
-    if (typeof e.clock !== 'number') {
-      needs = true;
-      break;
-    }
-  }
-  if (!needs) return g;
-  let sec = 0;
-  const events = g.events.map((e) => ({
-    ...e,
-    clock: typeof e.clock === 'number' ? e.clock : sec++
-  }));
+  // If every event already has a numeric clock, nothing to do.
+  if (g.events.every((e) => typeof e.clock === 'number')) return g;
+  // Assign sequential seconds *within each period* based on encounter order.
+  const counters = new Map<number, number>(); // period -> next sec
+  const events = g.events.map((e) => {
+    if (typeof e.clock === 'number') return e;
+    const cur = counters.get(e.period) ?? 0;
+    counters.set(e.period, cur + 1);
+    return { ...e, clock: cur };
+  });
   return { ...g, events };
 }
 
-/** Compute the next clock second for a game (max existing + 1; first = 0). */
-function nextClock(g: GameData, explicit?: number): number {
+/** Compute the next clock second *within a specific period*.
+* If `explicit` supplied use it; otherwise find max clock among events
+* that share the given period. First event in a period => 0.
+*/
+function nextClock(g: GameData, period: number, explicit?: number): number {
   if (typeof explicit === 'number' && explicit >= 0) return explicit;
   let max = -1;
   for (const e of g.events) {
+    if (e.period !== period) continue;
     if (typeof e.clock === 'number' && e.clock > max) max = e.clock;
   }
   return max + 1;
@@ -260,7 +260,7 @@ function addEvent(args: AddEventArgs): void {
   if (!g || g.meta.id !== args.gameId) return;
 
   const ts = args.ts ?? Date.now();
-  const clock = nextClock(g, args.clock);
+  const clock = nextClock(g, args.period, args.clock);
   const id = uuid();
 
   const ev: StatEvent = {

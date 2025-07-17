@@ -34,7 +34,11 @@ export type StatType =
   | 'STEAL'
   | 'DRAWN_EXCLUSION'
   | 'TURNOVER'
-  | 'EXCLUSION';
+  | 'EXCLUSION'
+  | 'SUB_IN'
+  | 'SUB_OUT'
+  | 'PERIOD_START';
+
 
 export const POSITIVE_STATS: readonly StatType[] = [
   'GOAL',
