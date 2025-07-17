@@ -1,9 +1,32 @@
 import { writable, get } from 'svelte/store';
 import { v4 as uuid } from 'uuid';
 import { saveJSON, loadJSON, remove, listKeys } from '$lib/persist';
-import type { ID, Player, GameMeta, GameData, GamesIndexEntry, StatEvent, GameStoreApi } from '$lib/types';
+import type {
+  ID,
+  Player,
+  Team,
+  GameMeta,
+  GameData,
+  GamesIndexEntry,
+  StatEvent,
+  StatType,
+  CreateGameArgs,
+  AddEventArgs,
+  GameStoreApi
+} from '$lib/types';
+
+/* ------------------------------------------------------------------ */
+/*  Storage Keys                                                       */
+/* ------------------------------------------------------------------ */
 
 const GAMES_INDEX_KEY = 'games_index';
+function gameKey(id: ID) {
+  return `game_${id}`;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Index helpers                                                      */
+/* ------------------------------------------------------------------ */
 
 function loadIndex(): GamesIndexEntry[] {
   return loadJSON<GamesIndexEntry[]>(GAMES_INDEX_KEY, []);
@@ -13,9 +36,9 @@ function saveIndex(ix: GamesIndexEntry[]) {
   saveJSON(GAMES_INDEX_KEY, ix);
 }
 
-function gameKey(id: ID) {
-  return `game_${id}`;
-}
+/* ------------------------------------------------------------------ */
+/*  Raw game persistence                                               */
+/* ------------------------------------------------------------------ */
 
 function loadGameData(id: ID): GameData | null {
   return loadJSON<GameData | null>(gameKey(id), null);
@@ -29,47 +52,151 @@ function deleteGameData(id: ID) {
   remove(gameKey(id));
 }
 
-// --- Svelte stores ---
+/* ------------------------------------------------------------------ */
+/*  Utilities                                                          */
+/* ------------------------------------------------------------------ */
+
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** create opponent pseudo-team */
+function mkOpponent(name?: string): Team {
+  return {
+    id: uuid(),
+    name: name ?? 'Opponent',
+    players: [],
+    isOpponent: true
+  };
+}
+
+/** Normalize create args & fill defaults */
+function normalizeCreateArgs({
+  homeTeamName,
+  players,
+  opponentName,
+  date = todayISO(),
+  periods = 4,
+  autoShotOnGoal = true,
+  trackOpponentPlayers = false,
+  location
+}: CreateGameArgs) {
+  return {
+    homeTeamName,
+    players,
+    opponentName,
+    date,
+    periods,
+    autoShotOnGoal,
+    trackOpponentPlayers,
+    location
+  };
+}
+
+/** Sequential clock backfill for legacy games that lack `clock`. */
+function backfillClocks(g: GameData): GameData {
+  let needs = false;
+  for (const e of g.events) {
+    if (typeof e.clock !== 'number') {
+      needs = true;
+      break;
+    }
+  }
+  if (!needs) return g;
+  let sec = 0;
+  const events = g.events.map((e) => ({
+    ...e,
+    clock: typeof e.clock === 'number' ? e.clock : sec++
+  }));
+  return { ...g, events };
+}
+
+/** Compute the next clock second for a game (max existing + 1; first = 0). */
+function nextClock(g: GameData, explicit?: number): number {
+  if (typeof explicit === 'number' && explicit >= 0) return explicit;
+  let max = -1;
+  for (const e of g.events) {
+    if (typeof e.clock === 'number' && e.clock > max) max = e.clock;
+  }
+  return max + 1;
+}
+
+/** Sort helper — ensure events are in ascending clock order. */
+function sortEventsByClock(events: StatEvent[]): StatEvent[] {
+  return [...events].sort((a, b) => {
+    const ca = typeof a.clock === 'number' ? a.clock : Number.MAX_SAFE_INTEGER;
+    const cb = typeof b.clock === 'number' ? b.clock : Number.MAX_SAFE_INTEGER;
+    if (ca !== cb) return ca - cb;
+    return a.ts - b.ts;
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Svelte stores                                                      */
+/* ------------------------------------------------------------------ */
+
 const games = writable<GamesIndexEntry[]>(loadIndex());
 const currentGame = writable<GameData | null>(null);
 
-async function createGame(init: Partial<GameMeta> & { homeTeamName: string; players: Player[] }): Promise<ID> {
+/* internal undo stack for *events only* (page layer extends undo) */
+const undoStack: ID[] = [];
+
+/* ------------------------------------------------------------------ */
+/*  CRUD                                                               */
+/* ------------------------------------------------------------------ */
+
+async function createGame(init: CreateGameArgs): Promise<ID> {
+  const {
+    homeTeamName,
+    players,
+    opponentName,
+    date,
+    periods,
+    autoShotOnGoal,
+    trackOpponentPlayers,
+    location
+  } = normalizeCreateArgs(init);
+
   const id = uuid();
   const now = Date.now();
+
   const meta: GameMeta = {
     id,
     createdAt: now,
     updatedAt: now,
-    date: init.date ?? new Date().toISOString().slice(0, 10),
-    location: init.location,
-    opponentName: init.opponentName ?? 'Opponent',
-    periods: init.periods ?? 4,
-    autoShotOnGoal: init.autoShotOnGoal ?? true,
-    trackOpponentPlayers: init.trackOpponentPlayers ?? false,
+    date,
+    location,
+    opponentName,
+    periods,
+    autoShotOnGoal,
+    trackOpponentPlayers
   };
 
-  const home = {
+  const home: Team = {
     id: uuid(),
-    name: init.homeTeamName,
-    players: init.players.map((p) => ({ ...p, id: p.id ?? uuid() })),
+    name: homeTeamName,
+    // ensure each player has an id (in case caller omitted)
+    players: players.map((p) => ({ ...p, id: p.id ?? uuid() }))
   };
 
-  const opponent = {
-    id: uuid(),
-    name: meta.opponentName ?? 'Opponent',
-    players: [],
-    isOpponent: true,
+  const opponent: Team = mkOpponent(opponentName);
+
+  const game: GameData = {
+    meta,
+    home,
+    opponent,
+    events: []
   };
 
-  const game: GameData = { meta, home, opponent, events: [] };
   saveGameData(game);
 
+  // update index
   const entry: GamesIndexEntry = {
     id,
-    opponentName: meta.opponentName,
-    date: meta.date,
+    opponentName,
+    date,
     createdAt: now,
-    updatedAt: now,
+    updatedAt: now
   };
   games.update((g) => {
     const arr = [...g, entry];
@@ -82,73 +209,111 @@ async function createGame(init: Partial<GameMeta> & { homeTeamName: string; play
 }
 
 async function loadGame(id: ID): Promise<GameData | null> {
-  const g = loadGameData(id);
-  currentGame.set(g);
-  return g;
+  const raw = loadGameData(id);
+  if (!raw) {
+    currentGame.set(null);
+    return null;
+  }
+  // migrate clocks if needed
+  const migrated = backfillClocks(raw);
+  if (migrated !== raw) {
+    saveGameData(migrated);
+  }
+  currentGame.set(migrated);
+  return migrated;
 }
 
 async function saveGame(g: GameData): Promise<void> {
   g.meta.updatedAt = Date.now();
   saveGameData(g);
+
   games.update((ix) => {
     const i = ix.findIndex((e) => e.id === g.meta.id);
+    const entry: GamesIndexEntry = {
+      id: g.meta.id,
+      opponentName: g.meta.opponentName,
+      date: g.meta.date,
+      createdAt: g.meta.createdAt,
+      updatedAt: g.meta.updatedAt
+    };
     if (i !== -1) {
-      ix[i] = {
-        id: g.meta.id,
-        opponentName: g.meta.opponentName,
-        date: g.meta.date,
-        createdAt: g.meta.createdAt,
-        updatedAt: g.meta.updatedAt,
-      };
+      ix[i] = entry;
+      saveIndex(ix);
+      return [...ix];
+    } else {
+      const arr = [...ix, entry];
+      saveIndex(arr);
+      return arr;
     }
-    saveIndex(ix);
-    return [...ix];
   });
-  currentGame.set({ ...g });
+
+  // set a *new object* to ensure reactivity
+  currentGame.set({ ...g, home: { ...g.home }, opponent: { ...g.opponent }, events: [...g.events] });
 }
 
-function addEvent(e: Omit<StatEvent, 'id' | 'ts'> & { ts?: number }) {
+/* ------------------------------------------------------------------ */
+/*  Events                                                             */
+/* ------------------------------------------------------------------ */
+
+function addEvent(args: AddEventArgs): void {
   const g = get(currentGame);
-  if (!g) return;
+  if (!g || g.meta.id !== args.gameId) return;
+
+  const ts = args.ts ?? Date.now();
+  const clock = nextClock(g, args.clock);
+  const id = uuid();
+
   const ev: StatEvent = {
-    id: uuid(),
-    ts: e.ts ?? Date.now(),
-    ...e,
+    id,
+    ts,
+    clock,
+    gameId: args.gameId,
+    teamId: args.teamId,
+    playerId: args.playerId,
+    type: args.type,
+    period: args.period
   };
+
   g.events.push(ev);
 
   // auto-add linked SHOT if configured and ev is GOAL
-  if (g.meta.autoShotOnGoal && e.type === 'GOAL') {
+  if (g.meta.autoShotOnGoal && args.type === 'GOAL' && args.playerId) {
+    const shotId = uuid();
     const shot: StatEvent = {
-      id: uuid(),
-      ts: ev.ts,
+      id: shotId,
+      ts,          // same timestamp
+      clock,       // same game second as goal
       gameId: g.meta.id,
-      teamId: e.teamId,
-      playerId: e.playerId,
+      teamId: args.teamId,
+      playerId: args.playerId,
       type: 'SHOT',
-      period: e.period,
-      linkedId: ev.id,
+      period: args.period,
+      linkedId: id
     };
-    ev.linkedId = shot.id;
+    // link both ways
+    ev.linkedId = shotId;
     g.events.push(shot);
   }
 
-  saveGame(g);
+  // record for store-level undo (events only)
+  undoStack.push(ev.id);
+
+  saveGame(g); // persists + updates currentGame
 }
 
-function removeEvent(id: ID) {
+function removeEvent(id: ID): void {
   const g = get(currentGame);
   if (!g) return;
   const idx = g.events.findIndex((e) => e.id === id);
   if (idx === -1) return;
   const ev = g.events[idx];
 
-  // if this event has a linked event, remove that too
+  // remove linked if present
   if (ev.linkedId) {
     const idx2 = g.events.findIndex((e) => e.id === ev.linkedId);
     if (idx2 !== -1) g.events.splice(idx2, 1);
   } else {
-    // check reverse linkage: if some other event links to this one
+    // check reverse linkage
     const linked = g.events.findIndex((e) => e.linkedId === ev.id);
     if (linked !== -1) g.events.splice(linked, 1);
   }
@@ -157,14 +322,30 @@ function removeEvent(id: ID) {
   saveGame(g);
 }
 
-function undoLast() {
+/** undo last event (store-level only; page adds roster+clock undo) */
+function undoLast(): void {
   const g = get(currentGame);
   if (!g || g.events.length === 0) return;
   const last = g.events[g.events.length - 1];
   removeEvent(last.id);
 }
 
-async function deleteGame(id: ID) {
+/** Update an event's clock & persist (keeps order sorted by clock). */
+function updateEventClock(gameId: ID, eventId: ID, clock: number): void {
+  const g = get(currentGame);
+  if (!g || g.meta.id !== gameId) return;
+  const ev = g.events.find((e) => e.id === eventId);
+  if (!ev) return;
+  ev.clock = clock;
+  g.events = sortEventsByClock(g.events);
+  saveGame(g);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Delete Game                                                        */
+/* ------------------------------------------------------------------ */
+
+async function deleteGame(id: ID): Promise<void> {
   deleteGameData(id);
   games.update((ix) => {
     const arr = ix.filter((e) => e.id !== id);
@@ -174,6 +355,10 @@ async function deleteGame(id: ID) {
   const cur = get(currentGame);
   if (cur?.meta.id === id) currentGame.set(null);
 }
+
+/* ------------------------------------------------------------------ */
+/*  Exported API                                                       */
+/* ------------------------------------------------------------------ */
 
 export const gameStore: GameStoreApi = {
   games,
@@ -185,4 +370,5 @@ export const gameStore: GameStoreApi = {
   addEvent,
   removeEvent,
   undoLast,
+  updateEventClock
 };

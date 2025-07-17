@@ -39,6 +39,7 @@
   };
   type PlayerTotalsMap = Record<ID, Totals>;
   type Score = { home: number; opponent: number };
+  type OppTotals = { goals: number; shots: number };
 
   const playerTotals = $derived.by<PlayerTotalsMap>(() => {
     return game ? computePlayerTotals(game) : ({} as PlayerTotalsMap);
@@ -48,9 +49,20 @@
     return game ? computeTeamScore(game) : { home: 0, opponent: 0 };
   });
 
+  const opponentTotals = $derived.by<OppTotals>(() => {
+    if (!game) return { goals: 0, shots: 0 };
+    let goals = 0;
+    let shots = 0;
+    for (const e of game.events) {
+      if (e.teamId !== game.opponent.id) continue;
+      if (e.type === 'GOAL') goals++;
+      else if (e.type === 'SHOT') shots++;
+    }
+    return { goals, shots };
+  });
+
   /* ------------------------------------------------------------------ */
-  /* Active vs Bench                                                    */
-  /* Active = active === true; Bench = everything else (false/undefined)*/
+  /* Active vs Bench (active === true)                                  */
   /* ------------------------------------------------------------------ */
   const activePlayers = $derived.by<Player[]>(() => {
     if (!game) return [];
@@ -231,7 +243,7 @@
       >+</button>
     </div>
 
-    <!-- ACTIVE PLAYERS + OPPONENT COLUMN -->
+    <!-- ACTIVE PLAYERS + OPPONENT TILE (desktop) -->
     <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-start">
       <!-- Active Players -->
       <div class="space-y-2">
@@ -305,31 +317,68 @@
         </div>
       </div>
 
-      <!-- Opponent Column (desktop / tablet landscape) -->
-      <div class="hidden md:flex md:self-start flex-col items-center gap-2 w-36 text-center">
-        <h3 class="text-sm font-semibold truncate max-w-full">{g.opponent.name}</h3>
-
-        <!-- row 1 -->
-        <div class="grid grid-cols-1 gap-2 w-full">
-          <button type="button" class="w-full py-2 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'GOAL')}>Opp Goal</button>
-          <button type="button" class="w-full py-2 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'SHOT')}>Opp Shot</button>
-          <button type="button" class="w-full py-2 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'ASSIST')}>Opp Ast</button>
+      <!-- Opponent Tile (desktop / tablet landscape) -->
+      <div
+        role="button"
+        tabindex="0"
+        class="hidden md:flex md:self-start flex-col items-center gap-1 w-32 p-3 rounded-lg bg-slate-800 border border-slate-700 shadow text-center text-white active:scale-95 transition-transform select-none"
+        title="Tap to log Opponent Goal"
+        onclick={() => logStat(undefined,'GOAL')}
+        onkeydown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            logStat(undefined,'GOAL');
+          }
+        }}
+      >
+        <div class="text-lg font-bold">Opponent</div>
+        <div class="text-xs text-slate-300 w-full">
+          G:{opponentTotals.goals} &nbsp;S:{opponentTotals.shots}
         </div>
-
-        <!-- row 2 -->
-        <div class="grid grid-cols-1 gap-2 w-full mt-2">
-          <button type="button" class="w-full py-2 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'BLOCK')}>Opp Blk</button>
-          <button type="button" class="w-full py-2 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'STEAL')}>Opp Stl</button>
-          <button type="button" class="w-full py-2 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'DRAWN_EXCLUSION')}>Opp DEx</button>
+        <div class="mt-1 grid grid-cols-2 gap-1 w-full">
+          <button
+            type="button"
+            class="px-1 py-0.5 rounded bg-white text-slate-800 text-xs font-bold"
+            onclick={(e) => { stop(e); logStat(undefined,'GOAL'); }}
+          >G</button>
+          <button
+            type="button"
+            class="px-1 py-0.5 rounded bg-white text-slate-800 text-xs font-bold"
+            onclick={(e) => { stop(e); logStat(undefined,'SHOT'); }}
+          >S</button>
         </div>
+      </div>
+    </div>
 
-        <div class="w-full h-px bg-slate-300 my-1"></div>
-
-        <!-- row 3 (negative) -->
-        <div class="grid grid-cols-1 gap-2 w-full">
-          <button type="button" class="w-full py-2 rounded bg-red-600 text-white font-bold" onclick={() => logStat(undefined,'TURNOVER')}>Opp TO</button>
-          <button type="button" class="w-full py-2 rounded bg-red-700 text-white font-bold" onclick={() => logStat(undefined,'EXCLUSION')}>Opp Ex</button>
-        </div>
+    <!-- Opponent Tile (mobile) -->
+    <div
+      role="button"
+      tabindex="0"
+      class="md:hidden flex flex-col items-center gap-1 w-full p-3 rounded-lg bg-slate-800 border border-slate-700 shadow text-center text-white active:scale-95 transition-transform select-none mt-4"
+      title="Tap to log Opponent Goal"
+      onclick={() => logStat(undefined,'GOAL')}
+      onkeydown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          logStat(undefined,'GOAL');
+        }
+      }}
+    >
+      <div class="text-lg font-bold">Opponent</div>
+      <div class="text-xs text-slate-300 w-full">
+        G:{opponentTotals.goals} &nbsp;S:{opponentTotals.shots}
+      </div>
+      <div class="mt-1 grid grid-cols-2 gap-1 w-full">
+        <button
+          type="button"
+          class="px-1 py-1 rounded bg-white text-slate-800 text-sm font-bold"
+          onclick={(e) => { stop(e); logStat(undefined,'GOAL'); }}
+        >G</button>
+        <button
+          type="button"
+          class="px-1 py-1 rounded bg-white text-slate-800 text-sm font-bold"
+          onclick={(e) => { stop(e); logStat(undefined,'SHOT'); }}
+        >S</button>
       </div>
     </div>
 
@@ -402,27 +451,6 @@
           {/each}
         </div>
       {/if}
-    </div>
-
-    <!-- Opponent Rows (mobile fallback) -->
-    <div class="md:hidden space-y-2 mt-4">
-      <!-- row 1 -->
-      <div class="grid grid-cols-3 gap-2">
-        <button type="button" class="py-3 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'GOAL')}>G</button>
-        <button type="button" class="py-3 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'SHOT')}>S</button>
-        <button type="button" class="py-3 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'ASSIST')}>A</button>
-      </div>
-      <!-- row 2 -->
-      <div class="grid grid-cols-3 gap-2">
-        <button type="button" class="py-3 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'BLOCK')}>B</button>
-        <button type="button" class="py-3 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'STEAL')}>St</button>
-        <button type="button" class="py-3 rounded bg-slate-800 text-white font-bold" onclick={() => logStat(undefined,'DRAWN_EXCLUSION')}>DEx</button>
-      </div>
-      <!-- row 3 negative -->
-      <div class="grid grid-cols-2 gap-2">
-        <button type="button" class="py-3 rounded bg-red-600 text-white font-bold" onclick={() => logStat(undefined,'TURNOVER')}>TO</button>
-        <button type="button" class="py-3 rounded bg-red-700 text-white font-bold" onclick={() => logStat(undefined,'EXCLUSION')}>Ex</button>
-      </div>
     </div>
 
     <!-- Controls -->
