@@ -97,9 +97,9 @@
   <div class="space-y-6 max-w-4xl mx-auto">
     <!-- Scoreboard -->
     <div class="grid grid-cols-3 items-center gap-2 text-center">
-      <div class="truncate text-xl font-semibold">{game.home.name}</div>
+      <div class="truncate text-2xl text-green-700 font-semibold">{game.home.name}</div>
       <div class="text-3xl font-bold">{teamScore.home} : {teamScore.opponent}</div>
-      <div class="truncate text-xl font-semibold">{game.opponent.name}</div>
+      <div class="truncate text-2xl text-blue-800 font-semibold">{game.opponent.name}</div>
     </div>
 
     <!-- Period Controls -->
