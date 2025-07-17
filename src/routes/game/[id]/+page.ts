@@ -1,7 +1,8 @@
-// src/routes/game/[id]/+page.ts
 import type { PageLoad } from './$types';
 
+// Pass route param to the page component; component loads the game from storage.
 export const load: PageLoad = async ({ params }) => {
-  // just pass the id through; component will load from gameStore
-  return { id: params.id };
+  return {
+    id: params.id
+  };
 };

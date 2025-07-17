@@ -1,37 +1,49 @@
 <script lang="ts">
   import { gameStore } from '$lib/stores/gameStore';
   import { goto } from '$app/navigation';
-  import { get } from 'svelte/store';
+  import type { GamesIndexEntry } from '$lib/types';
 
-  const { games } = gameStore;
+  // Subscribe to actual Svelte store from gameStore API
+  const gamesStore = gameStore.games;
+  let games: GamesIndexEntry[] = $state([]);
+
+  $effect(() => {
+    const unsub = gamesStore.subscribe((v) => (games = v));
+    return unsub;
+  });
 
   function newGame() {
     goto('/game/new');
   }
-
-  function openGame(id: string) {
-    goto(`/game/${id}`);
-  }
 </script>
 
-<div class="space-y-4">
-  <button class="w-full py-4 rounded-lg bg-blue-600 text-white text-xl font-bold" on:click={newGame}>
-    + New Game
-  </button>
+<div class="max-w-xl mx-auto space-y-6">
+  <div class="flex justify-end">
+    <button
+      type="button"
+      class="px-4 py-2 rounded bg-green-600 text-white font-semibold"
+      onclick={newGame}
+    >
+      + New Game
+    </button>
+  </div>
 
-  {#if $games.length === 0}
-    <p class="text-center text-slate-500">No games yet.</p>
+  {#if games.length === 0}
+    <p class="p-4 text-center text-slate-500">No games yet.</p>
   {:else}
-    <ul class="divide-y divide-slate-300 bg-white rounded-lg shadow">
-      {#each $games as g}
-        <li class="p-4 flex items-center justify-between" role="button" tabindex="0" on:click={() => openGame(g.id)}>
-          <div>
-            <div class="font-semibold">vs {g.opponentName}</div>
+    <ul class="space-y-2">
+      {#each games as g}
+        <li>
+          <!-- Use semantic interactive element: anchor, not clickable <li>. -->
+          <a
+            href={`/game/${g.id}`}
+            class="block p-4 rounded border bg-white shadow hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+          >
+            <div class="text-lg font-semibold">
+              vs {g.opponentName ?? 'Opponent'}
+            </div>
             <div class="text-sm text-slate-500">{g.date}</div>
-          </div>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 opacity-70">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-          </svg>
+          </a>
         </li>
       {/each}
     </ul>
