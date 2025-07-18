@@ -22,6 +22,22 @@
     return unsub;
   });
 
+  /* ---- Sorting: reverse chronological (newest first) ---- */
+  function sortGamesDesc(a: GamesIndexEntry, b: GamesIndexEntry): number {
+    // 1. If both have a date and they differ, compare ISO date strings descending
+    if (a.date && b.date && a.date !== b.date) {
+      return b.date.localeCompare(a.date);
+    }
+    // 2. Fallback to updatedAt / createdAt descending
+    const ua = a.updatedAt ?? a.createdAt ?? 0;
+    const ub = b.updatedAt ?? b.createdAt ?? 0;
+    if (ua !== ub) return ub - ua;
+    // 3. Final stable-ish fallback by id (descending so recent UUID-ish order tends to surface)
+    return b.id.localeCompare(a.id);
+  }
+
+  const sortedGames: GamesIndexEntry[] = $derived([...games].sort(sortGamesDesc));
+
   /* Populate derived details whenever games list changes (client only) */
   $effect(() => {
     if (typeof window === 'undefined') return;
@@ -115,11 +131,11 @@
     </button>
   </div>
 
-  {#if games.length === 0}
+  {#if sortedGames.length === 0}
     <p class="p-4 text-center text-slate-500">No games yet.</p>
   {:else}
     <ul class="space-y-3">
-      {#each games as g}
+      {#each sortedGames as g}
         {#key g.id}
           <li>
             <div
@@ -145,26 +161,26 @@
                 onclick={(e) => toggleMenu(g.id, e)}
               >⋯</button>
 
-            {#if openMenuFor === g.id}
-              <div
-                role="menu"
-                tabindex="-1"
-                aria-label="Game actions"
-                class="absolute z-20 top-10 right-2 w-40 bg-white border rounded-lg shadow-lg py-1 text-sm"
-                onkeydown={(e) => { if (e.key === 'Escape') closeMenu(); }}
-                onclick={(e) => { e.stopPropagation(); }}
-              >
-                <button
-                  role="menuitem"
-                  type="button"
-                  class="w-full text-left px-3 py-2 hover:bg-red-50 hover:text-red-700 flex items-center gap-2"
-                  onclick={(e) => { e.stopPropagation(); deleteGame(g.id, e); }}
+              {#if openMenuFor === g.id}
+                <div
+                  role="menu"
+                  tabindex="-1"
+                  aria-label="Game actions"
+                  data-menu-for={g.id}
+                  class="absolute z-20 top-10 right-2 w-40 bg-white border rounded-lg shadow-lg py-1 text-sm"
+                  onkeydown={(e) => { if (e.key === 'Escape') closeMenu(); }}
+                  onclick={(e) => { e.stopPropagation(); }}
                 >
-                  🗑️ <span>Delete</span>
-                </button>
-              </div>
-            {/if}
-
+                  <button
+                    role="menuitem"
+                    type="button"
+                    class="w-full text-left px-3 py-2 hover:bg-red-50 hover:text-red-700 flex items-center gap-2"
+                    onclick={(e) => { e.stopPropagation(); deleteGame(g.id, e); }}
+                  >
+                    🗑️ <span>Delete</span>
+                  </button>
+                </div>
+              {/if}
 
               <!-- Score Badge -->
               {#if details[g.id]}
