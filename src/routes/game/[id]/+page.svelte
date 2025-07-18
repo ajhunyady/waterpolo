@@ -26,16 +26,29 @@
   /* state */
   let period = $state(1);
   let game: GameData | null = $state(null);
+  let loadError: string | null = $state(null);
 
   /* subscribe to store */
   const currentGameStore = gameStore.currentGame;
   $effect(() => {
-    const unsub = currentGameStore.subscribe((v) => (game = v));
-    return unsub;
+    const unsub = currentGameStore.subscribe((v) => {
+      console.log('[Page] currentGame update:', v);
+      game = v;
+    });
   });
 
-  onMount(() => {
-    if (gameId) gameStore.loadGame(gameId);
+  onMount(async () => {
+    console.log('[Page] onMount gameId =', gameId);
+    if (!gameId) {
+      loadError = 'Missing game id';
+      return;
+    }
+    try {
+      const result = await gameStore.loadGame(gameId);
+      console.log('[Page] loadGame resolved:', result);
+    } catch (e) {
+      loadError = (e as Error).message ?? 'Failed to load game';
+    }
   });
 
   /* derived */
@@ -232,11 +245,11 @@
     </div>
 
     <!-- Event Log -->
-    <EventLog
-      game={g}
-      events={sortedEvents}
-      on:clockchange={(e) => setEventClock(e.detail.eventId, e.detail.clock)}
-    />
+  <EventLog
+    game={g}
+    events={sortedEvents}
+    onClockChange={(eventId, clock) => setEventClock(eventId, clock)}
+  />
 
     <!-- Controls -->
     <div class="flex gap-4 justify-center pt-4">

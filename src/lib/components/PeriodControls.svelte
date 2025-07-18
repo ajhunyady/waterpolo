@@ -1,19 +1,15 @@
 <script lang="ts">
-  import type { Score } from '$lib/game/utils';
-
-  let {
-    homeName,
-    opponentName,
-    score
-  }: {
-    homeName: string;
-    opponentName: string;
-    score: Score;
-  } = $props();
+  // Svelte 5 rune style:
+  let { period, max, onPrev, onNext } = $props<{
+    period: number;
+    max: number;
+    onPrev: () => void;
+    onNext: () => void;
+  }>();
 </script>
 
-<div class="grid grid-cols-3 items-center gap-2 text-center">
-  <div class="truncate text-xl font-semibold">{homeName}</div>
-  <div class="text-3xl font-bold">{score.home} : {score.opponent}</div>
-  <div class="truncate text-xl font-semibold">{opponentName}</div>
+<div class="flex items-center gap-2">
+  <button onclick={() => onPrev?.()} disabled={period <= 1}>Prev</button>
+  <span>{period} / {max}</span>
+  <button onclick={() => onNext?.()} disabled={period >= max}>Next</button>
 </div>
