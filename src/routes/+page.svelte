@@ -2,37 +2,29 @@
   import { gameStore } from '$lib/stores/gameStore';
   import { goto } from '$app/navigation';
   import { loadJSON } from '$lib/persist';
-  import type {
-    GamesIndexEntry,
-    GameData,
-    ID,
-    StatEvent
-  } from '$lib/types';
+  import type { GamesIndexEntry, GameData, ID, StatEvent } from '$lib/types';
 
-  /* Subscribe to the index of saved games (lightweight metadata). */
+  /* Index store subscription */
   const gamesStore = gameStore.games;
   let games: GamesIndexEntry[] = $state([]);
 
-  /* Cached per-game details we derive on demand (score + home team name). */
-  interface Score {
-    home: number;
-    opponent: number;
-  }
-  interface HomeInfo {
-    name: string;
-    score: Score;
-  }
+  /* Derived details (home team name + score) */
+  interface Score { home: number; opponent: number; }
+  interface HomeInfo { name: string; score: Score; }
   let details: Record<ID, HomeInfo> = $state({} as Record<ID, HomeInfo>);
 
-  /* Subscribe to the games index. */
+  /* Overflow menu state */
+  let openMenuFor: ID | null = $state(null);
+
+  /* Subscribe to index */
   $effect(() => {
     const unsub = gamesStore.subscribe((v) => (games = v));
     return unsub;
   });
 
-  /* Whenever games index changes (or on first mount in browser), refresh details. */
+  /* Populate derived details whenever games list changes (client only) */
   $effect(() => {
-    if (typeof window === 'undefined') return; // SSR guard
+    if (typeof window === 'undefined') return;
     const next: Record<ID, HomeInfo> = {};
     for (const g of games) {
       const data = loadGameData(g.id);
@@ -42,7 +34,6 @@
           score: computeScore(data)
         };
       } else {
-        // fallback if game record missing
         next[g.id] = {
           name: 'Our Team',
           score: { home: 0, opponent: 0 }
@@ -56,9 +47,7 @@
     goto('/game/new');
   }
 
-  /** Load full GameData for given id without mutating global currentGame. */
   function loadGameData(id: ID): GameData | null {
-    // gameStore persists games under game_${id}; persist.ts adds prefix internally.
     return loadJSON<GameData | null>(`game_${id}`, null);
   }
 
@@ -74,11 +63,44 @@
     return { home, opponent };
   }
 
-  /** Style helper: pick badge color based on win/loss/tie. */
   function scoreClass(s: Score): string {
     if (s.home > s.opponent) return 'bg-green-600 text-white';
     if (s.home < s.opponent) return 'bg-red-600 text-white';
     return 'bg-slate-400 text-white';
+  }
+
+  function toggleMenu(id: ID, e: MouseEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+    openMenuFor = openMenuFor === id ? null : id;
+    if (openMenuFor === id) {
+      queueMicrotask(() => {
+        const menu = document.querySelector<HTMLDivElement>(`[data-menu-for="${id}"]`);
+        menu?.focus();
+      });
+    }
+  }
+
+  function closeMenu() {
+    openMenuFor = null;
+  }
+
+  function deleteGame(id: ID, e?: MouseEvent) {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    if (confirm('Delete this game permanently? This cannot be undone.')) {
+      gameStore.deleteGame(id);
+      if (openMenuFor === id) openMenuFor = null;
+    }
+  }
+
+  // Outside click to close menu
+  if (typeof window !== 'undefined') {
+    window.addEventListener('click', () => {
+      if (openMenuFor) openMenuFor = null;
+    });
   }
 </script>
 
@@ -100,10 +122,51 @@
       {#each games as g}
         {#key g.id}
           <li>
-            <a
-              href={`/game/${g.id}`}
-              class="block p-4 rounded-xl border bg-white shadow hover:shadow-md hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 transition"
+            <div
+              role="button"
+              tabindex="0"
+              onclick={() => goto(`/game/${g.id}`)}
+              onkeydown={(ev) => {
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                  ev.preventDefault();
+                  goto(`/game/${g.id}`);
+                }
+                if (ev.key === 'Escape') closeMenu();
+              }}
+              class="relative p-4 rounded-xl border bg-white shadow hover:shadow-md hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 transition cursor-pointer"
             >
+              <!-- Overflow Menu Trigger -->
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={openMenuFor === g.id}
+                aria-label="Game actions"
+                class="absolute top-2 right-2 w-8 h-8 inline-flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
+                onclick={(e) => toggleMenu(g.id, e)}
+              >⋯</button>
+
+            {#if openMenuFor === g.id}
+              <div
+                role="menu"
+                tabindex="-1"
+                aria-label="Game actions"
+                class="absolute z-20 top-10 right-2 w-40 bg-white border rounded-lg shadow-lg py-1 text-sm"
+                onkeydown={(e) => { if (e.key === 'Escape') closeMenu(); }}
+                onclick={(e) => { e.stopPropagation(); }}
+              >
+                <button
+                  role="menuitem"
+                  type="button"
+                  class="w-full text-left px-3 py-2 hover:bg-red-50 hover:text-red-700 flex items-center gap-2"
+                  onclick={(e) => { e.stopPropagation(); deleteGame(g.id, e); }}
+                >
+                  🗑️ <span>Delete</span>
+                </button>
+              </div>
+            {/if}
+
+
+              <!-- Score Badge -->
               {#if details[g.id]}
                 <div
                   class={`inline-block px-3 py-1 mb-2 rounded-full text-sm font-bold ${scoreClass(details[g.id].score)}`}
@@ -111,25 +174,22 @@
                   {details[g.id].score.home} : {details[g.id].score.opponent}
                 </div>
               {:else}
-                <div
-                  class="inline-block px-3 py-1 mb-2 rounded-full text-sm font-bold bg-slate-300 text-slate-800"
-                >
+                <div class="inline-block px-3 py-1 mb-2 rounded-full text-sm font-bold bg-slate-300 text-slate-800">
                   0 : 0
                 </div>
               {/if}
 
+              <!-- Names & Date -->
               <div class="text-lg font-semibold leading-tight">
                 {details[g.id]?.name ?? 'Our Team'}
                 <span class="mx-1 text-slate-400">vs</span>
                 {g.opponentName ?? 'Opponent'}
               </div>
               <div class="text-sm text-slate-500 mt-1">{g.date}</div>
-            </a>
+            </div>
           </li>
         {/key}
       {/each}
     </ul>
   {/if}
 </div>
-
-<!-- no local <style>; global Tailwind handles everything -->

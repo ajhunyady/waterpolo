@@ -36,6 +36,40 @@ function saveIndex(ix: GamesIndexEntry[]) {
   saveJSON(GAMES_INDEX_KEY, ix);
 }
 
+/**
+ * Optionally scan localStorage for orphaned game_* keys that
+ * are not referenced in the index (can drift if user clears
+ * part of storage). Not invoked by default.
+ */
+function refreshIndex() {
+  const ix = loadIndex();
+  const set = new Set(ix.map((e) => e.id));
+  const keys = listKeys?.() ?? [];
+  let changed = false;
+  for (const k of keys) {
+    if (k.startsWith('game_')) {
+      const id = k.slice(5);
+      if (!set.has(id as ID)) {
+        // remove orphaned game key OR (alternatively) add it back to index
+        // remove(k);
+        // OR attempt to resurrect (commented out by default)
+        // const data = loadJSON<GameData | null>(k, null);
+        // if (data) {
+        //   ix.push({
+        //     id: data.meta.id,
+        //     opponentName: data.meta.opponentName,
+        //     date: data.meta.date,
+        //     createdAt: data.meta.createdAt,
+        //     updatedAt: data.meta.updatedAt
+        //   });
+        //   changed = true;
+        // }
+      }
+    }
+  }
+  if (changed) saveIndex(ix);
+}
+
 /* ------------------------------------------------------------------ */
 /*  Raw game persistence                                               */
 /* ------------------------------------------------------------------ */
@@ -149,6 +183,9 @@ const undoStack: ID[] = [];
 /*  CRUD                                                               */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Create new game, persist metadata & full object, update index and set as current.
+ */
 async function createGame(init: CreateGameArgs): Promise<ID> {
   const {
     homeTeamName,
@@ -210,6 +247,10 @@ async function createGame(init: CreateGameArgs): Promise<ID> {
   return id;
 }
 
+/**
+ * Load a game by id, migrating clocks if needed, and set as current.
+ * Returns null if not found.
+ */
 async function loadGame(id: ID): Promise<GameData | null> {
   const raw = loadGameData(id);
   if (!raw) {
@@ -224,6 +265,9 @@ async function loadGame(id: ID): Promise<GameData | null> {
   return migrated;
 }
 
+/**
+ * Persist updated game object and update index metadata entry.
+ */
 async function saveGame(g: GameData): Promise<void> {
   g.meta.updatedAt = Date.now();
   saveGameData(g);
@@ -256,6 +300,9 @@ async function saveGame(g: GameData): Promise<void> {
 /*  Events                                                             */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Append an event (and optional auto-generated shot), adjust clocks, persist.
+ */
 function addEvent(args: AddEventArgs): void {
   const g = get(currentGame);
   if (!g || g.meta.id !== args.gameId) return;
@@ -295,11 +342,17 @@ function addEvent(args: AddEventArgs): void {
     g.events.push(shot);
   }
 
+  // Keep events in consistent order early (useful if UI reads after single add)
+  g.events = sortEventsByClock(g.events);
+
   undoStack.push(ev.id);
 
   saveGame(g); // persists + updates currentGame
 }
 
+/**
+ * Remove an event and any linked pair (goal/shot), then persist.
+ */
 function removeEvent(id: ID): void {
   const g = get(currentGame);
   if (!g) return;
@@ -319,7 +372,7 @@ function removeEvent(id: ID): void {
   saveGame(g);
 }
 
-/** undo last event (store-level only; page adds roster+clock undo) */
+/** Undo last event (store-level only; page handles extended undo types). */
 function undoLast(): void {
   const g = get(currentGame);
   if (!g || g.events.length === 0) return;
@@ -342,6 +395,9 @@ function updateEventClock(gameId: ID, eventId: ID, clock: number): void {
 /*  Delete Game                                                        */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Permanently delete a game (record + index entry) and clear currentGame if active.
+ */
 async function deleteGame(id: ID): Promise<void> {
   deleteGameData(id);
   games.update((ix) => {
