@@ -20,7 +20,7 @@
 <div
   role="button"
   tabindex="0"
-  class="flex flex-col items-center gap-1 {compact ? 'w-full mt-4' : 'w-32 md:self-start'} p-3 rounded-lg bg-slate-800 border border-slate-700 shadow text-center text-white active:scale-95 transition-transform select-none"
+  class="flex flex-col items-center gap-1 {compact ? 'w-full mt-4' : 'w-48 md:self-start'} p-3 rounded-lg bg-slate-800 border border-slate-700 shadow text-center text-white active:scale-95 transition-transform select-none"
   title="Tap to log Opponent Goal"
   onclick={tileClick}
   onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tileClick(); } }}

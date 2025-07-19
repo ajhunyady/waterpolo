@@ -17,15 +17,15 @@ export function statLabel(t: StatType): string {
   switch (t) {
     case 'GOAL': return 'Goal';
     case 'SHOT': return 'Shot';
-    case 'ASSIST': return 'Ast';
-    case 'BLOCK': return 'Blk';
-    case 'STEAL': return 'Stl';
-    case 'DRAWN_EXCLUSION': return 'D Ex';
-    case 'TURNOVER': return 'TO';
-    case 'EXCLUSION': return 'Ex';
-    case 'SUB_IN': return 'In';
-    case 'SUB_OUT': return 'Out';
-    case 'PERIOD_START': return 'Start';
+    case 'ASSIST': return 'Assits';
+    case 'BLOCK': return 'Block';
+    case 'STEAL': return 'Steal';
+    case 'DRAWN_EXCLUSION': return 'Drawn Exclusion';
+    case 'TURNOVER': return 'Turnover';
+    case 'EXCLUSION': return 'Exclusion';
+    case 'SUB_IN': return 'Subbed In';
+    case 'SUB_OUT': return 'Subbed Out';
+    case 'PERIOD_START': return 'Start Period';
     default: return t;
   }
 }
