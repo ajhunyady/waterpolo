@@ -1,4 +1,5 @@
 import { writable, get } from 'svelte/store';
+import { settingsStore } from '$lib/stores/settingsStore';
 import { v4 as uuid } from 'uuid';
 import { saveJSON, loadJSON, remove, listKeys } from '$lib/persist';
 import type {
@@ -14,14 +15,6 @@ import type {
   AddEventArgs,
   GameStoreApi
 } from '$lib/types';
-
-/* ------------------------------------------------------------------ */
-/*  Defaults                                  */
-/* ------------------------------------------------------------------ */
-
-const DEFAULT_PERIODS = 4;
-const DEFAULT_OT = 2;
-const DEFAULT_SO = true;
 
 /* ------------------------------------------------------------------ */
 /*  Storage Keys                                                       */
@@ -118,24 +111,25 @@ function normalizeCreateArgs({
   players,
   opponentName,
   date = todayISO(),
-  periods = DEFAULT_PERIODS,
-  autoShotOnGoal = true,
-  trackOpponentPlayers = false,
+  periods,
+  autoShotOnGoal,
+  trackOpponentPlayers,
   location,
-  overtimePeriods = DEFAULT_OT,
-  shootoutEnabled = DEFAULT_SO
+  overtimePeriods,
+  shootoutEnabled
 }: CreateGameArgs) {
+  const s = get(settingsStore);
   return {
     homeTeamName,
     players,
     opponentName,
     date,
-    periods,
-    autoShotOnGoal,
-    trackOpponentPlayers,
+    periods: periods ?? s.defaultPeriods,
+    autoShotOnGoal: autoShotOnGoal ?? s.autoShotOnGoal,
+    trackOpponentPlayers: trackOpponentPlayers ?? s.trackOpponentPlayers,
     location,
-    overtimePeriods,
-    shootoutEnabled
+    overtimePeriods: overtimePeriods ?? s.defaultOvertimePeriods,
+    shootoutEnabled: shootoutEnabled ?? s.defaultShootoutEnabled
   };
 }
 
@@ -227,7 +221,7 @@ async function createGame(init: CreateGameArgs): Promise<ID> {
     trackOpponentPlayers,
     overtimePeriods,
     shootoutEnabled,
-    totalPeriods: periods 
+    totalPeriods: periods + (overtimePeriods ?? 0) + (shootoutEnabled ? 1 : 0)
   };
 
   const home: Team = {

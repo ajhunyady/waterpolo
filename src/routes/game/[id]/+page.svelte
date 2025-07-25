@@ -9,6 +9,7 @@
   import PeriodControls from '$lib/components/PeriodControls.svelte';
   import PlayerTile from '$lib/components/PlayerTile.svelte';
   import OpponentTile from '$lib/components/OpponentTile.svelte';
+  import OvertimeSettings from '$lib/components/OvertimeSettings.svelte';
   import EventLog from '$lib/components/EventLog.svelte';
   import {
     computePlayerTotals,
@@ -80,10 +81,14 @@
   let actionStack: Action[] = $state([]);
 
   /* ----- period controller (encapsulated logic) ----- */
-  const dynamicMax = $derived.by<number>(() => {
-    if (!game) return 0;
-    if (game.meta.shootoutPeriod) return game.meta.shootoutPeriod;
-    return game.meta.totalPeriods ?? game.meta.periods;
+   const dynamicMax = $derived.by<number>(() => {
+     if (!game) return 0;
+    return (
+      game.meta.totalPeriods ??
+      (game.meta.periods +
+        (game.meta.overtimePeriods ?? 0) +
+        (game.meta.shootoutEnabled ? 1 : 0))
+    );
   });
 
   const periodController = createPeriodController({
@@ -202,6 +207,9 @@
         onNext={() => periodController.next()}
       />
     </div>
+
+    <!-- OverTime control -->
+    <OvertimeSettings />
 
     <!-- Active + Opponent Desktop -->
     <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-start">
