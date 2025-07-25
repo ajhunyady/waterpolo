@@ -88,9 +88,13 @@ export interface GameMeta {
   date: string;               // ISO date of match (YYYY-MM-DD)
   location?: string;
   opponentName?: string;
-  periods: number;            // default 4
-  autoShotOnGoal: boolean;    // logging GOAL auto-adds SHOT
-  trackOpponentPlayers: boolean; // future extension
+  autoShotOnGoal: boolean;        // logging GOAL auto-adds SHOT
+  trackOpponentPlayers: boolean;  // future extension
+  periods: number;                // regulation period count (default 4)
+  overtimePeriods?: number;       // maximum number of OT periods allowed (default 0 = none)
+  shootoutEnabled?: boolean;      // whether a shootout is allowed if still tied after OTs
+  totalPeriods?: number;          // CURRENT total (reg + any OTs already allocated) (runtime & persisted)
+  shootoutPeriod?: number;        // period number reserved for shootout (only set once it begins)
 }
 
 export interface GameData {
@@ -117,10 +121,12 @@ export interface CreateGameArgs {
   players: Player[];
   opponentName?: string;
   date?: string;
-  periods?: number;
   autoShotOnGoal?: boolean;
   trackOpponentPlayers?: boolean;
   location?: string;
+  periods?: number;
+  overtimePeriods?: number;     // optional (default maybe 2 for a tournament)
+  shootoutEnabled?: boolean;   
 }
 
 export interface AddEventArgs {

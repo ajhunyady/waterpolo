@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import { gameStore } from '$lib/stores/gameStore';
   import { createPeriodController } from '$lib/game/periodController';
+  import { periodLabel } from '$lib/game/periodRules';
   import Scoreboard from '$lib/components/Scoreboard.svelte';
   import PeriodControls from '$lib/components/PeriodControls.svelte';
   import PlayerTile from '$lib/components/PlayerTile.svelte';
@@ -79,13 +80,20 @@
   let actionStack: Action[] = $state([]);
 
   /* ----- period controller (encapsulated logic) ----- */
+  const dynamicMax = $derived.by<number>(() => {
+    if (!game) return 0;
+    if (game.meta.shootoutPeriod) return game.meta.shootoutPeriod;
+    return game.meta.totalPeriods ?? game.meta.periods;
+  });
+
   const periodController = createPeriodController({
     getGame: () => game,
     getPeriod: () => period,
     setPeriod: (p) => { period = p; },
     pushAction: (a) => { actionStack = [...actionStack, a]; },
     addEvent: (args) => gameStore.addEvent(args),
-    maxPeriods: () => game?.meta.periods ?? 0
+    saveGame: (g) => gameStore.saveGame(g),
+    getMax: () => dynamicMax
   });
 
   /* ----- event logging helpers ----- */
@@ -178,18 +186,22 @@
 {#if game}
   {@const g = game!}
   <div class="space-y-6 max-w-5xl mx-auto">
-    <Scoreboard
-      homeName={g.home.name}
-      opponentName={g.opponent.name}
-      score={teamScore}
-    />
 
-    <PeriodControls
-      period={period}
-      max={g.meta.periods}
-      onPrev={() => periodController.prev()}
-      onNext={() => periodController.next()}
-    />
+    <!-- Score & Period Controls -->
+    <div class="space-y-1">
+      <Scoreboard
+        homeName={g.home.name}
+        opponentName={g.opponent.name}
+        score={teamScore}
+      />
+      <PeriodControls
+        period={period}
+        max={dynamicMax}
+        labelFor={(p) => game ? periodLabel(p, game.meta) : String(p)}
+        onPrev={() => periodController.prev()}
+        onNext={() => periodController.next()}
+      />
+    </div>
 
     <!-- Active + Opponent Desktop -->
     <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-start">

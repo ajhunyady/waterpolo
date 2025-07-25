@@ -16,6 +16,14 @@ import type {
 } from '$lib/types';
 
 /* ------------------------------------------------------------------ */
+/*  Defaults                                  */
+/* ------------------------------------------------------------------ */
+
+const DEFAULT_PERIODS = 4;
+const DEFAULT_OT = 2;
+const DEFAULT_SO = true;
+
+/* ------------------------------------------------------------------ */
 /*  Storage Keys                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -110,10 +118,12 @@ function normalizeCreateArgs({
   players,
   opponentName,
   date = todayISO(),
-  periods = 4,
+  periods = DEFAULT_PERIODS,
   autoShotOnGoal = true,
   trackOpponentPlayers = false,
-  location
+  location,
+  overtimePeriods = DEFAULT_OT,
+  shootoutEnabled = DEFAULT_SO
 }: CreateGameArgs) {
   return {
     homeTeamName,
@@ -123,7 +133,9 @@ function normalizeCreateArgs({
     periods,
     autoShotOnGoal,
     trackOpponentPlayers,
-    location
+    location,
+    overtimePeriods,
+    shootoutEnabled
   };
 }
 
@@ -195,7 +207,9 @@ async function createGame(init: CreateGameArgs): Promise<ID> {
     periods,
     autoShotOnGoal,
     trackOpponentPlayers,
-    location
+    location,
+    overtimePeriods,
+    shootoutEnabled
   } = normalizeCreateArgs(init);
 
   const id = uuid();
@@ -210,7 +224,10 @@ async function createGame(init: CreateGameArgs): Promise<ID> {
     opponentName,
     periods,
     autoShotOnGoal,
-    trackOpponentPlayers
+    trackOpponentPlayers,
+    overtimePeriods,
+    shootoutEnabled,
+    totalPeriods: periods 
   };
 
   const home: Team = {
