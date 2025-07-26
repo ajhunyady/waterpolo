@@ -7,7 +7,7 @@ const SETTINGS_KEY = 'app_settings_v1';
 const DEFAULT_SETTINGS: AppSettings = {
   defaultPeriods: 4,
   defaultOvertimePeriods: 2,
-  defaultShootoutEnabled: false,
+  defaultShootoutEnabled: true,
   autoShotOnGoal: true,
   trackOpponentPlayers: false
 };

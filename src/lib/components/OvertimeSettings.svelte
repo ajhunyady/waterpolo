@@ -1,38 +1,76 @@
-<!-- src/lib/components/OvertimeSettings.svelte -->
 <script lang="ts">
-  /**
-   * Props are optional but **bindable** so parents can do:
-   * <OvertimeSettings bind:overtimePeriods bind:shootoutEnabled />
-   */
+  // Bindable props: overtimePeriods (0/1/2) and shootoutEnabled (boolean)
   let {
-    overtimePeriods = $bindable(0),      // number of OT periods (optional)
-    shootoutEnabled = $bindable(false)   // shoot‑out enabled (optional)
+    overtimePeriods = $bindable(0),
+    shootoutEnabled = $bindable(false)
   } = $props<{ overtimePeriods?: number; shootoutEnabled?: boolean }>();
+
+  // Keep the select's bound value as a string to match <option value="...">
+  let lastCount = $state((overtimePeriods === 2 ? "2" : "1") as "1" | "2");
+
+  // Derived flag from stored numeric value
+  const otEnabled = $derived(overtimePeriods > 0);
+
+  // Sync select if parent changes overtimePeriods externally
+  $effect(() => {
+    if (overtimePeriods === 1 || overtimePeriods === 2) {
+      lastCount = String(overtimePeriods) as "1" | "2";
+    }
+  });
+
+  function toggleOT(e: Event) {
+    const checked = (e.target as HTMLInputElement).checked;
+    overtimePeriods = checked ? 2 : 0; // backend stays 0/1/2
+  }
+
+  function changeSelect() {
+    // lastCount already updated by bind:value; commit to backend if enabled
+    if (otEnabled) overtimePeriods = Number(lastCount);
+  }
+
+  function toggleShootout(e: Event) {
+    shootoutEnabled = (e.target as HTMLInputElement).checked;
+  }
 </script>
 
-<div class="flex items-center space-x-6 p-4 bg-gray-50 rounded-lg">
-  <div class="flex flex-col">
-    <label for="overtime" class="text-sm font-medium text-gray-700">
-      Overtime Periods
+<div class="space-y-3">
+  <!-- One-line: label, enable checkbox, and 1/2 select -->
+  <div class="flex items-center gap-3 flex-wrap">
+    <label for="enable-ot" class="inline-flex items-center gap-2">
+      <input
+        id="enable-ot"
+        type="checkbox"
+        class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+        checked={otEnabled}
+        onchange={toggleOT}
+      />
+      <span class="text-sm text-gray-700">Enable Overtime - Periods </span>
     </label>
-    <input
-      id="overtime"
-      type="number"
-      min="0"
-      bind:value={overtimePeriods}
-      class="mt-1 w-20 px-2 py-1 border rounded"
-    />
+
+    <select
+      id="ot-periods"
+      class="block w-32 rounded-md border-0 py-1.5 text-gray-900 shadow-sm
+             ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600
+             disabled:opacity-50 disabled:cursor-not-allowed"
+      bind:value={lastCount}
+      onchange={changeSelect}
+      disabled={!otEnabled}
+      aria-labelledby="ot-label"
+    >
+      <option value="1">1</option>
+      <option value="2">2</option>
+    </select>
   </div>
 
-  <div class="flex items-center">
+  <!-- Shootout toggle (separate) -->
+  <label class="mt-2 flex items-center gap-3">
     <input
       id="shootout"
       type="checkbox"
-      bind:checked={shootoutEnabled}
-      class="h-4 w-4 border-gray-300 rounded"
+      class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+      checked={shootoutEnabled}
+      onchange={toggleShootout}
     />
-    <label for="shootout" class="ml-2 text-sm font-medium text-gray-700">
-      Shootout Enabled
-    </label>
-  </div>
+    <span class="text-sm text-gray-700">Enable shootout</span>
+  </label>
 </div>
