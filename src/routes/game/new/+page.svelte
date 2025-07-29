@@ -1,17 +1,16 @@
 <script lang="ts">
   import { gameStore } from '$lib/stores/gameStore';
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+  import { teamStore } from '$lib/stores/teamStore';
   import { v4 as uuid } from 'uuid';
-  import type { Player } from '$lib/types';
-  import { PREDEFINED_TEAMS, cloneTemplatePlayers } from '$lib/predefinedTeams';
+  import type { Player, ID } from '$lib/types';
 
   let opponentName = '';
   let date = new Date().toISOString().slice(0, 10);
   let homeTeamName = 'Our Team';
   let periods = 4;
   let autoShotOnGoal = true;
-
-  let selectedTemplate = '';
 
   // start w/ 13 empty roster slots
   let players: Player[] = Array.from({ length: 13 }).map((_, i) => ({
@@ -20,12 +19,27 @@
     name: ''
   }));
 
-  function applyTemplate(id: string) {
-    const t = PREDEFINED_TEAMS.find((tt) => tt.id === id);
-    if (!t) return;
-    homeTeamName = t.name;
-    players = cloneTemplatePlayers(t);
-  }
+  // Load roster from ?teamId= if present
+  $effect(() => {
+    const tid = $page.url.searchParams.get('teamId') as ID | null;
+    if (!tid) return;
+    let cancelled = false;
+    (async () => {
+      const t = await teamStore.loadTeam(tid);
+      if (cancelled || $page.url.searchParams.get('teamId') !== tid) return;
+      if (!t) return;
+      homeTeamName = t.name ?? '';
+      players = (t.players ?? []).map((p) => ({
+        id: uuid(),
+        number: (p as any).number,
+        name: p.name ?? ''
+      }));
+      if (players.length === 0) {
+        players = [{ id: uuid(), number: 1, name: '' } as Player];
+      }
+    })();
+    return () => { cancelled = true; };
+  });
 
   async function create() {
     const activePlayers = players.filter((p) => p.name.trim() !== '');
@@ -45,15 +59,6 @@
   <h1 class="text-2xl font-bold">New Game</h1>
 
   <div class="grid gap-4">
-    <label class="grid gap-1">
-      <span class="text-sm font-medium">Use Predefined Team</span>
-      <select class="input" bind:value={selectedTemplate} onchange={() => applyTemplate(selectedTemplate)}>
-        <option value="">-- None --</option>
-        {#each PREDEFINED_TEAMS as t}
-          <option value={t.id}>{t.name}</option>
-        {/each}
-      </select>
-    </label>
     <label class="grid gap-1">
       <span class="text-sm font-medium">Opponent Name</span>
       <input bind:value={opponentName} class="input" placeholder="Opponent" />
