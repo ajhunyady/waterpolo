@@ -6,18 +6,20 @@
   import { v4 as uuid } from 'uuid';
   import type { Player, ID } from '$lib/types';
 
-  let opponentName = '';
-  let date = new Date().toISOString().slice(0, 10);
-  let homeTeamName = 'Our Team';
+  let opponentName = $state('');
+  let date = $state(new Date().toISOString().slice(0, 10));
+  let homeTeamName = $state('Our Team');
   let periods = 4;
-  let autoShotOnGoal = true;
+  let autoShotOnGoal = $state(true);
 
   // start w/ 13 empty roster slots
-  let players: Player[] = Array.from({ length: 13 }).map((_, i) => ({
-    id: uuid(),
-    number: i + 1,
-    name: ''
-  }));
+  let players: Player[] = $state(
+    Array.from({ length: 13 }).map((_, i) => ({
+      id: uuid(),
+      number: i + 1,
+      name: ''
+    }))
+  );
 
   // Load roster from ?teamId= if present
   $effect(() => {

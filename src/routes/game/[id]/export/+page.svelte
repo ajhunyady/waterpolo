@@ -6,14 +6,16 @@
 
   // NOTE: removed unused/deprecated `page` import from '$app/stores'
 
-  let opponentName = '';
-  let date = new Date().toISOString().slice(0,10);
-  let homeTeamName = 'Our Team';
+  let opponentName = $state('');
+  let date = $state(new Date().toISOString().slice(0,10));
+  let homeTeamName = $state('Our Team');
   let periods = 4;
-  let autoShotOnGoal = true;
+  let autoShotOnGoal = $state(true);
 
   // start w/ 13 empty roster slots
-  let players: Player[] = Array.from({length:13}).map((_,i)=>({id:uuid(),number:i+1,name:""}));
+  let players: Player[] = $state(
+    Array.from({length:13}).map((_,i)=>({id:uuid(),number:i+1,name:""}))
+  );
 
   async function create() {
     const activePlayers = players.filter((p)=>p.name.trim() !== '');
@@ -60,7 +62,7 @@
   </div>
 
   <button
-    on:click={create}
+    onclick={create}
     class="w-full py-4 rounded-lg bg-green-600 text-white text-xl font-bold"
   >
     Create Game
