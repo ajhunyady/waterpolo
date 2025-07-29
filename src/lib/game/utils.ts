@@ -17,7 +17,7 @@ export function statLabel(t: StatType): string {
   switch (t) {
     case 'GOAL': return 'Goal';
     case 'SHOT': return 'Shot';
-    case 'ASSIST': return 'Assits';
+    case 'ASSIST': return 'Assists';
     case 'BLOCK': return 'Block';
     case 'STEAL': return 'Steal';
     case 'DRAWN_EXCLUSION': return 'Drawn Exclusion';
