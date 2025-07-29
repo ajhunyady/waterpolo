@@ -11,7 +11,10 @@ export interface Player {
   id: ID;
   number: number | null;       // jersey number
   name: string;
-  /** Bench flag (false = bench; true/undefined = active). */
+  /**
+   * Whether the player is currently in the game.
+   * true means active, false or undefined means on the bench.
+   */
   active?: boolean;
 }
 
