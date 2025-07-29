@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { teamStore } from '$lib/stores/teamStore';
+  import TeamAutocomplete from '$lib/components/TeamAutocomplete.svelte';
   import { v4 as uuid } from 'uuid';
   import type { Player, ID } from '$lib/types';
   import type { TeamIndexEntry } from '$lib/stores/teamStore';
@@ -103,25 +104,10 @@
       <input type="date" bind:value={date} class="input" />
     </label>
 
-    {#if teams.length > 0}
-      <label class="grid gap-1">
-        <span class="text-sm font-medium">Team</span>
-        <select class="input" bind:value={selectedTeamId}>
-          <option value="">Custom roster…</option>
-          {#each teams as t}
-            <option value={t.id}>{t.name}</option>
-          {/each}
-        </select>
-        {#if !selectedTeamId}
-          <input class="input mt-2" bind:value={homeTeamName} placeholder="Our Team" />
-        {/if}
-      </label>
-    {:else}
-      <label class="grid gap-1">
-        <span class="text-sm font-medium">Team Name</span>
-        <input bind:value={homeTeamName} class="input" />
-      </label>
-    {/if}
+    <label class="grid gap-1">
+      <span class="text-sm font-medium">Team</span>
+      <TeamAutocomplete bind:selectedTeamId bind:teamName={homeTeamName} />
+    </label>
 
     <label class="inline-flex items-center gap-2">
       <input type="checkbox" bind:checked={autoShotOnGoal} />
