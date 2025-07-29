@@ -28,18 +28,25 @@
     if (tid && tid !== selectedTeamId) selectedTeamId = tid;
   });
 
-  // start w/ 13 empty roster slots
-  let players: Player[] = $state(
-    Array.from({ length: 13 }).map((_, i) => ({
+  // function to generate a blank roster
+  function defaultPlayers() {
+    return Array.from({ length: 13 }).map((_, i) => ({
       id: uuid(),
       number: i + 1,
       name: ''
-    }))
-  );
+    })) as Player[];
+  }
 
-  // Load roster when a team is selected
+  // start w/ 13 empty roster slots
+  let players: Player[] = $state(defaultPlayers());
+
+  // Load roster when a team is selected or reset when using a custom roster
   $effect(() => {
-    if (!selectedTeamId) return;
+    if (!selectedTeamId) {
+      homeTeamName = 'Our Team';
+      players = defaultPlayers();
+      return;
+    }
     let cancelled = false;
     const id = selectedTeamId;
     (async () => {
@@ -56,7 +63,9 @@
         players = [{ id: uuid(), number: 1, name: '' } as Player];
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   });
 
   function addPlayerRow() {
@@ -94,22 +103,24 @@
       <input type="date" bind:value={date} class="input" />
     </label>
 
-    <label class="grid gap-1">
-      <span class="text-sm font-medium">Our Team Name</span>
-      <input bind:value={homeTeamName} class="input" />
-    </label>
-
-    {#if teams.length > 0}
+    <div class="grid gap-4 sm:grid-cols-2">
       <label class="grid gap-1">
-        <span class="text-sm font-medium">Use Saved Team</span>
-        <select class="input" bind:value={selectedTeamId}>
-          <option value="">Custom roster…</option>
-          {#each teams as t}
-            <option value={t.id}>{t.name}</option>
-          {/each}
-        </select>
+        <span class="text-sm font-medium">Our Team Name</span>
+        <input bind:value={homeTeamName} class="input" />
       </label>
-    {/if}
+
+      {#if teams.length > 0}
+        <label class="grid gap-1">
+          <span class="text-sm font-medium">Use Saved Team</span>
+          <select class="input" bind:value={selectedTeamId}>
+            <option value="">Custom roster…</option>
+            {#each teams as t}
+              <option value={t.id}>{t.name}</option>
+            {/each}
+          </select>
+        </label>
+      {/if}
+    </div>
 
     <label class="inline-flex items-center gap-2">
       <input type="checkbox" bind:checked={autoShotOnGoal} />
