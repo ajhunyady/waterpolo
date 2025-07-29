@@ -103,24 +103,25 @@
       <input type="date" bind:value={date} class="input" />
     </label>
 
-    <div class="grid gap-4 sm:grid-cols-2">
+    {#if teams.length > 0}
       <label class="grid gap-1">
-        <span class="text-sm font-medium">Our Team Name</span>
+        <span class="text-sm font-medium">Team</span>
+        <select class="input" bind:value={selectedTeamId}>
+          <option value="">Custom roster…</option>
+          {#each teams as t}
+            <option value={t.id}>{t.name}</option>
+          {/each}
+        </select>
+        {#if !selectedTeamId}
+          <input class="input mt-2" bind:value={homeTeamName} placeholder="Our Team" />
+        {/if}
+      </label>
+    {:else}
+      <label class="grid gap-1">
+        <span class="text-sm font-medium">Team Name</span>
         <input bind:value={homeTeamName} class="input" />
       </label>
-
-      {#if teams.length > 0}
-        <label class="grid gap-1">
-          <span class="text-sm font-medium">Use Saved Team</span>
-          <select class="input" bind:value={selectedTeamId}>
-            <option value="">Custom roster…</option>
-            {#each teams as t}
-              <option value={t.id}>{t.name}</option>
-            {/each}
-          </select>
-        </label>
-      {/if}
-    </div>
+    {/if}
 
     <label class="inline-flex items-center gap-2">
       <input type="checkbox" bind:checked={autoShotOnGoal} />
