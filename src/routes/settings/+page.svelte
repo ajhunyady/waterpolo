@@ -3,6 +3,7 @@
   import { get } from 'svelte/store';
   import { goto } from '$app/navigation';
   import OvertimeSettings from '$lib/components/OvertimeSettings.svelte';
+  import StatsTrackingSettings from '$lib/components/StatsTrackingSettings.svelte';
   import type { AppSettings } from '$lib/settings';
 
   // Load once from store; edits are local until Save
@@ -61,7 +62,7 @@
               <span class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/10 text-white">📊</span>
               <div>
                 <dt class="font-semibold text-white">Stats & Tracking</dt>
-                <dd class="mt-1 text-gray-300">Control automatic shots and whether to track opponent players.</dd>
+                <dd class="mt-1 text-gray-300">Control automatic shots and other settings.</dd>
               </div>
             </div>
           </dl>
@@ -74,7 +75,7 @@
           <!-- Game Defaults -->
           <div class="grid grid-cols-1 gap-x-8 gap-y-8 sm:grid-cols-6">
             <div class="sm:col-span-6">
-              <h3 class="text-base font-semibold leading-7 text-gray-900">Game defaults</h3>
+              <h3 class="text-xl font-semibold leading-7 text-gray-900">Game defaults</h3>
               <p class="mt-1 text-sm leading-6 text-gray-500">Used when creating a new game.</p>
             </div>
 
@@ -103,7 +104,7 @@
             <!-- Overtime / Shootout -->
             <div class="sm:col-span-6">
               <fieldset class="mt-2 rounded-md ring-1 ring-gray-200 p-4">
-                <legend class="px-1 text-sm font-medium text-gray-900">Overtime & shootout</legend>
+                <legend class="px-1 text-sm font-medium text-gray-900">Overtime & Shootout</legend>
                 <div class="mt-3">
                   <OvertimeSettings
                     bind:overtimePeriods={defaultOvertimePeriods}
@@ -114,30 +115,15 @@
             </div>
 
             <!-- Stats & Tracking -->
-            <div class="sm:col-span-6">
-              <h3 class="text-base font-semibold leading-7 text-gray-900">Stats & tracking</h3>
-              <div class="mt-4 space-y-4">
-                <label class="flex gap-3 items-center">
-                  <input
-                    type="checkbox"
-                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-                    checked={autoShotOnGoal}
-                    onchange={(e) => (autoShotOnGoal = (e.target as HTMLInputElement).checked)}
-                  />
-                  <span class="text-sm text-gray-700">Automatically add a <span class="font-medium">SHOT</span> when logging a <span class="font-medium">GOAL</span></span>
-                </label>
-
-                <label class="flex gap-3 items-center">
-                  <input
-                    type="checkbox"
-                    class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-                    checked={trackOpponentPlayers}
-                    onchange={(e) => (trackOpponentPlayers = (e.target as HTMLInputElement).checked)}
-                  />
-                  <span class="text-sm text-gray-700">Track opponent player stats</span>
-                </label>
+            <fieldset class="sm:col-span-6 mt-2 rounded-md ring-1 ring-gray-200 p-4">
+              <legend class="px-1 text-sm font-medium text-gray-900">Stats & Tracking</legend>
+              <div class="mt-3">
+                <StatsTrackingSettings
+                  bind:autoShotOnGoal={autoShotOnGoal}
+                  bind:trackOpponentPlayers={trackOpponentPlayers}
+                />
               </div>
-            </div>
+            </fieldset>
           </div>
 
           <!-- Bottom actions 25% / 75% -->

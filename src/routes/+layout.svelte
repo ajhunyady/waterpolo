@@ -8,6 +8,9 @@
   function openSettings() {
     window.location.href = "/settings";
   }
+  function openTeams() {
+    window.location.href = "/teams";
+  }
 
   // Close on outside click or Escape
   if (typeof window !== "undefined") {
@@ -71,6 +74,17 @@
                 onclick={(e) => e.stopPropagation()}
                 onkeydown={(e) => { if (e.key === 'Escape') avatarOpen = false; }}
               >
+                <!-- Teams (new) -->
+                <button
+                  type="button"
+                  role="menuitem"
+                  class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2"
+                  onclick={() => { avatarOpen = false; openTeams(); }}
+                >
+                  👥 <span>Teams</span>
+                </button>
+
+                <!-- Settings -->
                 <button
                   type="button"
                   role="menuitem"
@@ -92,7 +106,6 @@
     {@render children()}
   </main>
 </div>
-
 
 <style lang="postcss">
   @reference "../app.css";
