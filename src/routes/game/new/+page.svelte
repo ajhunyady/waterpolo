@@ -14,6 +14,7 @@
   let periods = 4;
   let autoShotOnGoal = $state(true);
   let editingDate = $state(false);
+  let prevDate = '';
 
   const teamsIdxStore = teamStore.teams;
   let teams: TeamIndexEntry[] = $state([]);
@@ -99,9 +100,15 @@
         type="date"
         bind:value={date}
         class="input w-auto"
-        onblur={() => (editingDate = false)}
+        onblur={() => {
+          if (!date) date = prevDate;
+          editingDate = false;
+        }}
         onkeydown={(e) => {
-          if (e.key === 'Enter') editingDate = false;
+          if (e.key === 'Enter' || e.key === 'Escape') {
+            if (!date) date = prevDate;
+            editingDate = false;
+          }
         }}
       />
     {:else}
@@ -109,10 +116,19 @@
         {date}
         <button
           type="button"
-          class="ml-2 text-blue-600 hover:underline"
-          onclick={() => (editingDate = true)}
+          class="ml-2 p-1 rounded-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          aria-label="Edit date"
+          title="Edit date"
+          onclick={() => {
+            prevDate = date;
+            editingDate = true;
+          }}
         >
-          Edit
+          <!-- Pencil icon -->
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"></path>
+            <path d="M20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"></path>
+          </svg>
         </button>
       </span>
     {/if}
