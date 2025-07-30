@@ -13,6 +13,7 @@
   let homeTeamName = $state('');
   let periods = 4;
   let autoShotOnGoal = $state(true);
+  let editingDate = $state(false);
 
   const teamsIdxStore = teamStore.teams;
   let teams: TeamIndexEntry[] = $state([]);
@@ -91,19 +92,37 @@
 </script>
 
 <div class="space-y-6 max-w-2xl mx-auto">
-  <h1 class="text-2xl font-bold">New Game</h1>
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold">New Game</h1>
+    {#if editingDate}
+      <input
+        type="date"
+        bind:value={date}
+        class="input w-auto"
+        onblur={() => (editingDate = false)}
+        onkeydown={(e) => {
+          if (e.key === 'Enter') editingDate = false;
+        }}
+      />
+    {:else}
+      <span class="text-sm text-slate-700">
+        {date}
+        <button
+          type="button"
+          class="ml-2 text-blue-600 hover:underline"
+          onclick={() => (editingDate = true)}
+        >
+          Edit
+        </button>
+      </span>
+    {/if}
+  </div>
 
   <div class="grid gap-4">
     <label class="grid gap-1">
       <span class="text-sm font-medium">Opponent Name</span>
       <input bind:value={opponentName} class="input" placeholder="Opponent" />
     </label>
-
-    <label class="grid gap-1">
-      <span class="text-sm font-medium">Date</span>
-      <input type="date" bind:value={date} class="input" />
-    </label>
-
     <label class="grid gap-1">
       <span class="text-sm font-medium">Team</span>
       <TeamAutocomplete bind:selectedTeamId bind:teamName={homeTeamName} />
