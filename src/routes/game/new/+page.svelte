@@ -10,7 +10,7 @@
 
   let opponentName = $state('');
   let date = $state(new Date().toISOString().slice(0, 10));
-  let homeTeamName = $state('Our Team');
+  let homeTeamName = $state('');
   let periods = 4;
   let autoShotOnGoal = $state(true);
 
@@ -44,7 +44,7 @@
   // Load roster when a team is selected or reset when using a custom roster
   $effect(() => {
     if (!selectedTeamId) {
-      homeTeamName = 'Our Team';
+      homeTeamName = '';
       players = defaultPlayers();
       return;
     }
