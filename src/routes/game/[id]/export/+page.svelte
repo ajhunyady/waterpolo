@@ -71,7 +71,7 @@
 
 <style lang="postcss">
   /* Make Tailwind utilities visible in this scoped style block */
-  @reference "../../app.css";
+  @reference "../../../../app.css";
 
   /* Shared input style (scoped to this component) */
   .input {

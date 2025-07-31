@@ -190,7 +190,7 @@
 
 {#if game}
   {@const g = game!}
-  <div class="space-y-6 max-w-5xl mx-auto">
+  <div class="space-y-6 page-container">
 
     <!-- Score & Period Controls -->
     <div class="space-y-1">

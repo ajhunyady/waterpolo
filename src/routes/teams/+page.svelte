@@ -37,7 +37,7 @@
 </script>
 
 <!-- Page header -->
-<div class="max-w-4xl mx-auto mb-6 flex items-center justify-between">
+<div class="page-container mb-6 flex items-center justify-between">
   <h1 class="text-2xl font-bold">Teams</h1>
   <button
     type="button"
@@ -49,7 +49,7 @@
 </div>
 
 <!-- Teams list -->
-<div class="max-w-4xl mx-auto">
+<div class="page-container">
   <div class="rounded-2xl bg-white shadow ring-1 ring-gray-200 p-4">
     {#if sortedTeams.length === 0}
       <p class="text-sm text-slate-500">No teams yet.</p>
