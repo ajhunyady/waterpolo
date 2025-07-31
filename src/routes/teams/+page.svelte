@@ -41,7 +41,7 @@
   <h1 class="text-2xl font-bold">Teams</h1>
   <button
     type="button"
-    class="px-4 py-2 rounded bg-green-600 text-white font-semibold shadow hover:bg-green-700 active:scale-95 transition"
+    class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
     onclick={newTeam}
   >
     + New Team
@@ -83,7 +83,7 @@
                 <!-- Use in New Game -->
                 <button
                   type="button"
-                  class="p-2 rounded-full text-green-600 hover:text-green-700 hover:bg-green-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600"
+                  class="p-2 rounded-full text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                   aria-label="Use in new game"
                   title="Use in new game"
                   onclick={() => useInNewGame(t.id)}

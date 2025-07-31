@@ -97,7 +97,7 @@
 <div class="max-w-xl mx-auto flex justify-end mb-6">
   <button
     type="button"
-    class="px-4 py-2 rounded bg-green-600 text-white font-semibold shadow hover:bg-green-700 active:scale-95 transition"
+    class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
     onclick={newGame}
   >
     + New Game
