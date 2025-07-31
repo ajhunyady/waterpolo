@@ -92,7 +92,7 @@
   }
 </script>
 
-<div class="space-y-6 max-w-2xl mx-auto">
+<div class="space-y-6 page-container">
   <div class="flex items-center justify-between">
     <h1 class="text-2xl font-bold">New Game</h1>
     {#if editingDate}

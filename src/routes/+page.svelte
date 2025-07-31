@@ -94,7 +94,7 @@
 </script>
 
 <!-- Toolbar: only New‑Game button -------------------------------->
-<div class="max-w-xl mx-auto flex justify-end mb-6">
+<div class="page-container flex justify-end mb-6">
   <button
     type="button"
     class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
@@ -105,7 +105,7 @@
 </div>
 
 <!-- Main content -------------------------------------------------->
-<div class="max-w-xl mx-auto space-y-6">
+<div class="page-container space-y-6">
   {#if sortedGames.length === 0}
     <p class="p-4 text-center text-slate-500">No games yet.</p>
   {:else}

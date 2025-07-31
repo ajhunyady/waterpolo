@@ -79,7 +79,7 @@
   }
 </script>
 
-<div class="mx-auto w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+<div class="page-container px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
   <!-- Page heading -->
   <div class="mb-4 sm:mb-6">
     <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Edit Team</h1>
