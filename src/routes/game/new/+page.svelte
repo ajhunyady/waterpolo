@@ -112,7 +112,7 @@
         }}
       />
     {:else}
-      <span class="inline-flex items-center text-sm text-slate-700">
+      <span class="inline-flex items-center text-lg font-semibold text-slate-700">
         <span>{date}</span>
         <button
           type="button"
