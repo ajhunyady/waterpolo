@@ -181,7 +181,7 @@
   <button
     type="button"
     onclick={create}
-    class="w-full py-4 rounded-lg bg-green-600 text-white text-xl font-bold"
+    class="w-full rounded-lg bg-indigo-600 px-4 py-4 text-xl font-bold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
   >
     Create Game
   </button>
