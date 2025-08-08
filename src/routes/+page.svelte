@@ -166,10 +166,10 @@
             {/if}
 
             <!-- Names & date -->
-            <div class="text-lg font-semibold leading-tight">
-              {details[g.id]?.name ?? 'Our Team'}
+            <div class="text-lg font-semibold leading-tight flex items-center gap-1">
+              <span aria-hidden="true">🏠</span>{details[g.id]?.name ?? 'Our Team'}
               <span class="mx-1 text-slate-400">vs</span>
-              {g.opponentName ?? 'Opponent'}
+              <span aria-hidden="true">✈️</span>{g.opponentName ?? 'Opponent'}
             </div>
             <div class="text-sm text-slate-500 mt-1">{g.date}</div>
           </div>
