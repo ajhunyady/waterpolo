@@ -25,6 +25,8 @@ npm run dev
 npm run dev -- --open
 ```
 
+The development server listens on [http://localhost:5174](http://localhost:5174) by default.
+
 ## Building
 
 To create a production version of your app:
