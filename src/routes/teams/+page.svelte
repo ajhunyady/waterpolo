@@ -29,11 +29,6 @@
   function useInNewGame(id: ID) {
     goto(`/game/new?teamId=${encodeURIComponent(id)}`);
   }
-  async function deleteTeam(id: ID) {
-    if (confirm('Delete this team? This cannot be undone.')) {
-      await teamStore.deleteTeam(id);
-    }
-  }
 </script>
 
 <!-- Page header -->
@@ -94,22 +89,6 @@
                   </svg>
                 </button>
 
-                <!-- Delete -->
-                <button
-                  type="button"
-                  class="p-2 rounded-full text-red-600 hover:text-red-700 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
-                  aria-label="Delete team"
-                  title="Delete team"
-                  onclick={() => deleteTeam(t.id)}
-                >
-                  <!-- Trash can (stroked) -->
-                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path d="M3 6h18"></path>
-                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
-                    <path d="M10 11v6M14 11v6"></path>
-                    <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path>
-                  </svg>
-                </button>
               </div>
             </div>
           </li>

@@ -77,6 +77,14 @@
   function cancel() {
     goto('/teams');
   }
+
+  async function deleteTeam() {
+    if (!teamId) return;
+    if (confirm('Delete this team? This cannot be undone.')) {
+      await teamStore.deleteTeam(teamId);
+      goto('/teams');
+    }
+  }
 </script>
 
 <div class="page-container px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
@@ -199,6 +207,25 @@
               Add player
             </button>
           </div>
+        </section>
+
+        <!-- Settings -->
+        <section aria-labelledby="settings-heading" class="space-y-2">
+          <h2 id="settings-heading" class="text-base font-semibold text-gray-900">Settings</h2>
+          <p class="text-sm text-red-700">Deleting this team will remove it permanently.</p>
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+            onclick={deleteTeam}
+          >
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M3 6h18" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6M14 11v6" />
+              <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+            </svg>
+            <span>Delete team</span>
+          </button>
         </section>
       {/if}
     </div>
