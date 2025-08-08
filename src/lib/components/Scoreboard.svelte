@@ -13,13 +13,7 @@
 </script>
 
 <div class="grid grid-cols-3 items-center gap-2 text-center">
-  <div class="truncate text-xl font-semibold flex items-center justify-center gap-1">
-    <span aria-hidden="true">🏠</span>
-    {homeName}
-  </div>
+  <div class="truncate text-xl font-semibold">{homeName}</div>
   <div class="text-3xl font-bold">{score.home} : {score.opponent}</div>
-  <div class="truncate text-xl font-semibold flex items-center justify-center gap-1">
-    <span aria-hidden="true">✈️</span>
-    {opponentName}
-  </div>
+  <div class="truncate text-xl font-semibold">{opponentName}</div>
 </div>
